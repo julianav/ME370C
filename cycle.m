@@ -1,4 +1,5 @@
 clear all;
+format compact;
 
 water = importPhase('liquidVapor.xml','water');
 water_vap = IdealGasMix('gri30.xml');
@@ -6,16 +7,19 @@ water_vap = IdealGasMix('gri30.xml');
 T_amb = 300;
 
 %Properties
-volume = 1*.75*1.5;  %m^3 chamber volume find value
+volume = 3.4*1*.75;  %m^3 chamber volume find value
 adsorbent_density = 800; %kg/m^3
 porus_volume = 0.35; %ml/kg
 water_content = 0; %percent
 porosity = adsorbent_density*porus_volume*1000*1e-6; %fraction
 
-m_metal = 0;
-c_metal = 0;   %metal cover
+%Masses
+Ntubes = 672;
+SA_tubes = 3.4 * (pi * 0.02) * Ntubes;
+m_metal = SA_tubes * .8e-3 * 8940; %volume * density 
+m_solid = volume * adsorbent_density - m_metal; %kg    % silica_Mass = 895; %kg
+c_metal = 0.39; %kJ/kg*K  %metal tubes, copper
 c_solid = 0.921; %kJ/kg*K  %silica gel
-
 
 % Adsorption Model parameters
 K = 5.5*10^-12; %Pa
@@ -66,16 +70,13 @@ set(water,'P',cooling_P_out,'T',cooling_T_out);
 cooling_h_out = enthalpy_mass(water);
 
 %Pressures
-setState_Tsat(water,[chilled_T_out,0]);
+setState_Tsat(water,[chilled_T_in,0]);
 P_evap = pressure(water);
 setState_Tsat(water,[cooling_T_in,1]);
 P_cond = pressure(water);
 
 % P_evap = 1.2e3; %Pa %approximations
 % P_cond = 4.5e3; %Pa
-
-%Masses
-m_solid = volume * adsorbent_density; %kg    % silica_Mass = 895; %kg
 
 T1 = T_amb;
 P1 = P_evap;
@@ -97,12 +98,13 @@ density_amb = density(water_vap);
 
 
 %-----------------------------------------------------
-%Process 1-2 = Heating and Pressurization
+%Process 1-2 = Heating and Pressurization 
 %-----------------------------------------------------
 T_evap = chilled_T_in;
-setState_Tsat(water,[T_evap 1]);
+setState_Tsat(water,[T_evap 1]);  %vapor
 P_evap = pressure(water);
 
+T_cool = cooling_T_in;
 % set(water,'T',T_amb,'P',P_evap);
 set(water_vap,'P',P_evap,'T',T_amb,'X','H2O:1');
 ug1 = intEnergy_mass(water_vap);
@@ -113,7 +115,12 @@ setState_Tsat(water,[T_amb 0]);
 rhoL = density(water);
 rho_a1 = rhoL;
 
-q_max = K*exp(Qst/(R/MolarMass*T_amb))*P_evap;
+q_max = K*exp(Qst/(R/MolarMass*T_amb))*P_evap;  %mass adsorbate / mass solid
+
+m_a = q_max * m_solid;
+m_gas1 = volume * rhog1 * porosity;
+m_total = m_a + m_gas1;
+
 
 P1_water = P_evap;
 T1_water = T_amb;
@@ -142,46 +149,49 @@ for P = P_evap:dP:P_cond
     rhog = density(water_vap);
     ug = intEnergy_mass(water_vap);
     
-    setState_Tsat(water,[T 0]);
+    setState_Tsat(water,[T 0]);  %liquid
     rhoL = density(water);
     
     %---------------------------------------------
     dT = T - T_prev;
+    dQ_metal = m_metal * c_metal * dT;
     dQ_solid = m_solid * c_solid * dT;
     %---------------------------------------------
     dtheta = 0;
-    dW = volume * P * dtheta;
+    dW = - volume * P * dtheta;
     
-    m_a = m_solid * q_max;
+    m_a = q_max * m_solid;
     
     ha = hg - Qst;  %enthalpy of adsorbate phase
     rho_a = rhoL;
     u_a = ha - P / rho_a;
     du_a = u_a - ua_prev;
     
-    dQ_adsorbate = dW * m_a * du_a;
+    dQ_adsorbate = m_a * du_a - dW;
     %----------------------------------------------
-%     m_g = m_total - m_a;
-    m_g = (volume * density_amb) * (porosity - (q_max * m_solid)/(volume * rho_a1));
+    m_g = m_total - m_a;
+%     m_g_paper = (volume * density_amb) * (porosity - (q_max * m_solid)/(volume * rho_a1));
     du_g = ug - ug_prev;
     dQ_gas = -dW + m_g * du_g;
     %-----------------------------------------------
-    dQ12 = dQ_solid + dQ_adsorbate + dQ_gas;
+    dQ12 = dQ_metal + dQ_solid + dQ_adsorbate + dQ_gas;
     %-----------------------------------------------
     Q12 = Q12 + dQ12;
     
     %graphing
     T12_water(i) = T;
     P12_water(i) = P;
+    T12_bed(i) = T;
+    P12_bed(i) = P;
     q12(i) = q_max;
+    m_gas12(i) = m_g;
+    m_ads12(i) = m_a;
     
     ua_prev = u_a;
     T_prev = T;
     i = i + 1;
 end
 
-T12_bed = T12_water;
-P12_bed = P12_water;
 
 % % setState_Psat(water,[P_cond 0]);
 % % T2 = temperature(water);
@@ -204,7 +214,7 @@ P12_bed = P12_water;
 % 
 % Q12 = dQ_solid + dQ_adsorbate + dQ_gas
 
-Q_heating = hot_m_dot*(hot_h_out - hot_h_in);  %reference value only
+Q_heating_ref = hot_m_dot*(hot_h_out - hot_h_in);  %reference value only
 
 
 %%--------------------------------------------------------------
@@ -218,7 +228,7 @@ ug2 = intEnergy_mass(water);
 
 T_cond = cooling_T_in;  %condensation temperature
 setState_Tsat(water,[T_cond 0]); %liquid phase
-rhoL = 995; %density(water);
+rhoL = density(water);
 
 T2_bed = T12_bed(end);
 T3_water = T_cond;
@@ -226,7 +236,10 @@ P3_water = P_cond;
 T3_bed = hot_T_in;
 P3_bed = P_cond;
 
-%q_min = K*exp(Qst/(R/MolarMass*T_cond))*P_cond;
+% q_min = K*exp(Qst/(R/MolarMass*T_cond))*P_cond;
+m_a2 = q_max * m_solid;
+m_a22 = m_ads12(end);
+m_g2 = m_gas12(end);
 
 dT = (T3_bed - T2_bed)/10;
 q_prev = q_max;
@@ -234,70 +247,83 @@ ha = hg2 - Qst;  %enthalpy of adsorbate phase
 rho_a = rhoL;
 ua_prev = ha - P_cond / rho_a;
 ug_prev = ug2;
+ma_prev = m_a2;
+mg_prev = m_g2;
+T_prev = T2_bed;
 Q_cond = 0;
 Q23 = 0;
 m_des = 0;
 i = 1;
 
-for t = T2_bed:dT:T3_bed
-    T = t;
+for T = T2_bed:dT:T3_bed
     set(water,'T',T,'P',P_cond);
     hg = enthalpy_mass(water);
-    ug = intEnergy_mass(water); 
-    
-    setState_Tsat(water,[T 0]);
+    ug = intEnergy_mass(water);
+    rhog = density(water);
+
+    setState_Tsat(water,[T 0]); %liquid
     rhoL = density(water);
 
     %-----------------------------------------
+    dT = T - T_prev;
+    dQ_metal = m_metal * c_metal * dT;
     dQ_solid = m_solid * c_solid * dT;
     %-----------------------------------------
-    q_curr = K*exp(Qst/(R/MolarMass*T))*P_cond;
-    dq = q_curr - q_prev;
-    m_a = q_curr * m_solid;
-    dm_a = dq * m_solid;
+    q = K*exp(Qst/(R/MolarMass*T))*P_cond;
+    Dq = q - q_prev;
+    
+    m_a = q * m_solid;
+    Dm_a = m_a - ma_prev;
     
     ha = hg - Qst;  %enthalpy of adsorbate phase
     rho_a = rhoL;
     u_a = ha - P_cond / rho_a;
     du_a = u_a - ua_prev;
-    dU_a = m_a * du_a + u_a * dm_a;
+    dU_a = m_a * du_a + u_a * Dm_a;
     
-    dm_desorbed = -dm_a;
+    Dm_des = -Dm_a;
     
-    dW_a = volume * P_cond * dq;
+    dW_a = - volume * P_cond * Dq;
     
-    dQ_adsorbate = dU_a + hg * dm_desorbed + dW_a;
+    dQ_adsorbate = dU_a - hg * Dm_des - dW_a;
     %---------------------------------------------
-    %     m_g = m_total - m_a;
-    m_g = (volume * density_amb) * (porosity - (q_max * m_solid)/(volume * rho_a));
-    dm_g = -dm_desorbed;
+%     m_g_paper = (volume * rhog) * (porosity - (q * m_solid)/(volume * rho_a));
+    Dm_g = Dm_des;
+%     m_g_t = m_total - m_a;
+    m_g = mg_prev + Dm_g;
+    
     du_g = ug - ug_prev;
     
-    dU_g = m_g * du_g + ug * dm_g;
+    dU_g = m_g * du_g + ug * Dm_g;
     
-    dQ_gas = dU_g - dW_a - dm_g * hg;
+    dQ_gas = dU_g - dW_a - Dm_g * hg;
     %---------------------------------------------
-    dQ23 = dQ_solid + dQ_adsorbate + dQ_gas;
+    dQ23 = dQ_metal + dQ_solid + dQ_adsorbate + dQ_gas;
     %---------------------------------------------
-    dm_cond = -(dm_a + dm_g);
-    dQ_cond = hg * dm_cond;
+    Dm_cond = Dm_g;
+    dQ_cond = hg * Dm_cond;
     %---------------------------------------------
     Q23 = Q23 + dQ23;
     Q_cond = Q_cond + dQ_cond;
     
-    m_des = m_des + dm_desorbed;
+    m_des = m_des + Dm_des;
     
     %graphing
     T23_water(i) = T;  %?????
     P23_water(i) = P_cond;
     T23_bed(i) = T;
     P23_bed(i) = P_cond;
-    q23(i) = q_curr;
+    q23(i) = q;
     m_desorbed(i) = m_des;
+    m_gas23(i) = m_g;
+    m_ads23(i) = m_a;
 
+    T_prev = T;
     ua_prev = u_a;
     ug_prev = ug;
-    q_prev = q_curr;
+    q_prev = q;
+    ma_prev = m_a;
+    mg_prev = m_g;
     
     i = i + 1;
 end
@@ -323,12 +349,13 @@ Q_cooling = cooling_m_dot*(cooling_h_out - cooling_h_in);
 T_max = T3_bed;
 P4_bed = P_evap;
 
-set(water_vap,'P',P_evap,'T',T_amb,'X','H2O:1');
-ug3 = intEnergy_mass(water_vap);
-hg3 = enthalpy_mass(water_vap);
-rhog3 = density(water_vap);
+% set(water_vap,'P',P_evap,'T',T_amb,'X','H2O:1');
+set(water,'T',T_max,'P',P_cond);
+ug3 = intEnergy_mass(water);
+hg3 = enthalpy_mass(water);
+rhog3 = density(water);
 
-setState_Psat(water,[P_evap 0]);
+setState_Psat(water,[P_evap 0]);  %liquid
 T4_bed = temperature(water);
 rhoL = density(water);
 rho_a3 = rhoL;
@@ -357,17 +384,20 @@ for P = P_cond:dP:P_evap
     
     %---------------------------------------------------
     dT = T - T_prev;
-    dQ_metal = -m_metal * c_metal * dT;
-    dQ_solid = -m_solid * c_solid * dT;
+    dQ_metal = m_metal * c_metal * dT;
+    dQ_solid = m_solid * c_solid * dT;
     %---------------------------------------------------
     dtheta = 0; %Va/Vb;
-    m_a = m_solid * q_min;
+    dW = - volume * P * dtheta;
+    
+    m_a = q_min * m_solid;
     
     ha = hg - Qst;  %enthalpy of adsorbate phase
     rho_a = rhoL;
     u_a = ha - P / rho_a;
     du_a = u_a - ua_prev;
     
+%     dQ_adsorbate = -volume * P * dtheta - m_a * du_a;
     dQ_adsorbate = -volume * P * dtheta - m_a * du_a;
     %---------------------------------------------------
     m_g = (volume * rhog3) * (porosity - (q_min * m_solid)/(volume * rho_a3));
@@ -451,7 +481,7 @@ for t = T4_bed:dT:T1_bed
     dQ_adsorbate = h_ev * dm_ads - dU_a - dW_a;
     %-------------------------------------------------
     m_g = (volume * density_amb) * (porosity - (q_max * m_solid)/(volume * rho_a1));
-    dm_g = -dm_desorbed;
+    dm_g = -Dm_des;
     du_g = ug - ug_prev;
     
     dU_g = m_g * du_g + ug * dm_g;
@@ -506,17 +536,17 @@ title('Adsorption Chiller Cycle')
 % axis([200 400 1000 5000])
 hold off
 
-% figure(2)
-% clf
-% semilogy([-1/T1_water -1/T2_water -1/T3_water],[P1_water P2_water P3_water],'bx-')
-% hold on
-% semilogy([-1/T1_bed -1/T2_bed -1/T3_bed],[P1_bed P2_bed P3_bed],'ro-')
-% axis([200 400 1000 5000])
-% hold off
-% xlabel('-1/T')
-% ylabel('lnP')
-% legend('water','bed')
-% title('Adsorption Chiller Cycle')
+figure(2)
+clf
+semilogy([-1/T1_water -1/T2_water -1/T3_water],[P1_water P2_water P3_water],'bx-')
+hold on
+semilogy([-1/T1_bed -1/T2_bed -1/T3_bed],[P1_bed P2_bed P3_bed],'ro-')
+axis([200 400 1000 5000])
+hold off
+xlabel('-1/T')
+ylabel('lnP')
+legend('water','bed')
+title('Adsorption Chiller Cycle')
 
 figure(3)
 clf
@@ -533,20 +563,33 @@ title('Adsorption Chiller Concentrations')
 figure(4)
 clf
 hold on
-plot(T23_bed-273,m_desorbed,'x-')
+plot(T23_bed-273,m_desorbed,'bx-')
 xlabel('T (C)')
 ylabel('mass desorbed (kg)')
-% legend('water','bed')
 title('Adsorption Chiller Mass Desorbed')
-axis([45 90 0 180])
+% axis([45 90 0 180])
 
 figure(5)
 clf
 hold on
-plot(T41_bed-273,m_adsorbed,'x-')
+plot(T41_bed-273,m_adsorbed,'rx-')
 xlabel('T (C)')
 ylabel('mass adsorbed (kg)')
-% legend('water','bed')
 title('Adsorption Chiller Mass Adsorbed')
 % axis([45 90 0 180])
+
+figure(6)
+clf
+hold on
+plot(T12_bed-273,m_ads12,'bx-')
+plot(T12_bed-273,m_gas12,'ro-')
+plot([T12_bed T23_bed]-273,[m_ads12 + m_gas12 m_ads23 + m_gas23],'g-')
+plot(T23_bed-273,m_ads23,'bx-')
+plot(T23_bed-273,m_gas23,'ro-')
+xlabel('T (C)')
+ylabel('mass (kg)')
+legend('adsorbed phase','gas phase','total')
+title('Adsorption Chiller Mass Process 1-2')
+% axis([45 90 0 180])
+
 
