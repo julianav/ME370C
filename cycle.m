@@ -8,7 +8,7 @@ water_vap = IdealGasMix('gri30.xml');
 T_amb = 300;
 
 %Properties
-volume = 1; %3.4*1*.75;  %m^3 chamber volume find value
+volume = 3.4*1*1.5;  %m^3 chamber volume find value
 adsorbent_density = 800; %800kg/m^3
 porus_volume = 0.35; %ml/kg
 water_content = 0; %percent
@@ -16,9 +16,9 @@ porosity = adsorbent_density*porus_volume*1000*1e-6; %fraction
 
 %Masses
 Ntubes = 672;
-SA_tubes = pi*.02*100; %3.4 * (pi * 0.02) * Ntubes;
+SA_tubes = 3.4 * (pi * 0.02) * Ntubes;
 m_metal = SA_tubes * .8e-3 * 8940; %volume * density 
-volume_tube = pi * .02^2 * 1 * 100;
+volume_tube = pi * .02^2 * 3.4 * Ntubes;
 m_solid = (volume - volume_tube) * adsorbent_density - m_metal; %kg    % silica_Mass = 895; %kg
 c_metal = 0.39e3; %J/kg*K  %metal tubes, copper
 c_solid = 0.921e3; %J/kg*K  %silica gel
@@ -314,7 +314,7 @@ for T = T2_bed:dT:T3_bed
     
     du_g = ug - ug_prev;
     
-    dU_g = m_g * du_g + ug * Dm_g;
+    dU_g = m_g * du_g + ug * Dm_g;  %m_g = Dm_a - m_leaving
     
     dW_g = -dW_a;
     
@@ -565,40 +565,48 @@ end
 
 %Condensation
 
+% % Throttling
+% P4_water = P_evap;
+% setState_Psat(water,[P_evap,0]); %liquid
+% hf = enthalpy_mass(water);
+% T_evap = temperature(water);
+% T4_water = T_evap;
+% 
+% setState_Psat(water,[P_evap,1]); %vapor
+% hg = enthalpy_mass(water);
+% 
+% hfg = hf - hg;
+% 
+% set(water,'T',T_amb,'P',P_evap);
+% hf_amb = enthalpy_mass(water);
+% hf_evap = hf;
+% 
+% y = 1 - (hf_amb - hf_evap) / hfg;
+% 
+% %Evaporation
+% Qevap = m_evap * hfg;
 
-
-
-% Throttling
-P4_water = P_evap;
-setState_Psat(water,[P_evap,0]); %liquid
-hf = enthalpy_mass(water);
-T_evap = temperature(water);
-T4_water = T_evap;
-
-setState_Psat(water,[P_evap,1]); %vapor
-hg = enthalpy_mass(water);
-
-hfg = hf - hg;
-
-set(water,'T',T_amb,'P',P_evap);
-hf_amb = enthalpy_mass(water);
-hf_evap = hf;
-
-y = 1 - (hf_amb - hf_evap) / hfg;
-
-%Evaporation
-Qevap = m_evap * hfg;
-
-
+%Water states
 set(water,'T',T1_water,'P',P1_water);
 h1 = enthalpy_mass(water);
 set(water,'T',T2_water,'P',P2_water);
 h2 = enthalpy_mass(water);
 set(water,'T',T3_water,'P',P3_water);
 h3 = enthalpy_mass(water);
-set(water,'T',T4_water,'P',P4_water);
-h4 = enthalpy_mass(water);
+h4 = h3;
 
+%Throttling
+setState_Psat(water,[P_evap,0]); %liquid
+hf = enthalpy_mass(water);
+setState_Psat(water,[P_evap,1]); %vapor
+hg = enthalpy_mass(water);
+T4_water = temperature(water);
+P4_water = P_evap;
+x = (h4 - hf)/(hg - hf);
+y = 1-x;
+
+%Evaporation
+Qevap = y * m_evap * (hg - hf);
 
 
 [h_dome, s_dome, u_dome, T_dome, P_dome, v_dome] = vaporDome(water);
@@ -611,10 +619,10 @@ Qevap = Qevap/1e6
 Qcond = Qcond/1e6
 Qin = (Q12+Q23)
 
-COP = -Qevap/Qin
+COP = Qevap/Qin
 
 Qadd = (Q12 + Q23 + Qevap)
-Qrej = -(Q34 + Q41)
+Qrej = -(Q34 + Q41 - Qcond)
 
 
 %% Figures
@@ -636,22 +644,22 @@ Qrej = -(Q34 + Q41)
 % % axis([200 400 1000 5000])
 % hold off
 % 
-% figure(2)
-% clf
-% semilogy(-1./T12_bed,P12_bed,'bx-')
-% hold on
-% semilogy(-1./[T12_water T3_water T4_water T1_water],...
-%     [P12_water P3_water P4_water P1_water],'ro-')
-% semilogy(-1./T23_bed,P23_bed,'bx-')
-% semilogy(-1./T34_bed,P34_bed,'bx-')
-% semilogy(-1./T41_bed,P41_bed,'bx-')
-% % axis([200 400 1000 5000])
-% hold off
-% xlabel('-1/T')
-% ylabel('lnP')
-% legend('bed','water')
-% title('Adsorption Chiller Cycle')
-% 
+figure(2)
+clf
+semilogy(-1./T12_bed,P12_bed,'bx-')
+hold on
+semilogy(-1./[T12_water T3_water T4_water T1_water],...
+    [P12_water P3_water P4_water P1_water],'ro-')
+semilogy(-1./T23_bed,P23_bed,'bx-')
+semilogy(-1./T34_bed,P34_bed,'bx-')
+semilogy(-1./T41_bed,P41_bed,'bx-')
+% axis([200 400 1000 5000])
+hold off
+xlabel('-1/T')
+ylabel('lnP')
+legend('bed','water')
+title('Adsorption Chiller Cycle')
+
 % figure(3)
 % clf
 % hold on
@@ -682,23 +690,23 @@ Qrej = -(Q34 + Q41)
 % title('Adsorption Chiller Mass Adsorbed')
 % % axis([45 90 0 180])
 % 
-% figure(6)
-% clf
-% hold on
-% plot(T12_bed-273,m_ads12,'bx-')
-% plot(T23_bed-273,m_ads23,'rx-')
-% plot(T34_bed-273,m_ads34,'gx-')
-% plot(T41_bed-273,m_ads41,'kx-')
-% % plot(T12_bed-273,m_gas12,'bo-')
-% % % plot([T12_bed T23_bed]-273,[m_ads12 + m_gas12 m_ads23 + m_gas23],'g-')
-% % plot(T23_bed-273,m_gas23,'ro-')
-% % plot(T34_bed-273,m_gas34,'go-')
-% % plot(T41_bed-273,m_gas41,'ko-')
-% xlabel('T (C)')
-% ylabel('mass (kg)')
-% % legend('adsorbed phase','gas phase','total')
-% legend('Heat/Pressure','Desorb/Cond','Cool/Depressure','Evap/Adsorb')
-% title('Adsorption Chiller Mass')
+figure(6)
+clf
+hold on
+plot(T12_bed-273,m_ads12,'bx-')
+plot(T23_bed-273,m_ads23,'rx-')
+plot(T34_bed-273,m_ads34,'gx-')
+plot(T41_bed-273,m_ads41,'kx-')
+% plot(T12_bed-273,m_gas12,'bo-')
+% % plot([T12_bed T23_bed]-273,[m_ads12 + m_gas12 m_ads23 + m_gas23],'g-')
+% plot(T23_bed-273,m_gas23,'ro-')
+% plot(T34_bed-273,m_gas34,'go-')
+% plot(T41_bed-273,m_gas41,'ko-')
+xlabel('T (C)')
+ylabel('mass (kg)')
+% legend('adsorbed phase','gas phase','total')
+legend('Heat/Pressure','Desorb/Cond','Cool/Depressure','Evap/Adsorb')
+title('Adsorption Chiller Mass')
 % 
 % figure(7)
 % clf
@@ -710,15 +718,15 @@ Qrej = -(Q34 + Q41)
 % title('Adsorption Chiller')
 % % axis([45 90 0 180])
 % 
-% figure(8)
-% clf
-% hold on
-% plot(T34_bed-273,-Q34_cool/1e6,'bx-')
-% plot(T41_bed-273,-Q41_ads/1e6,'bx-')
-% xlabel('T (C)')
-% ylabel('Driving energy (MJ)')
-% title('Adsorption Chiller')
-% % axis([45 90 0 180])
+figure(8)
+clf
+hold on
+plot(T34_bed-273,-Q34_cool/1e6,'bx-')
+plot(T41_bed-273,-Q41_ads/1e6,'bx-')
+xlabel('T (C)')
+ylabel('Driving energy (MJ)')
+title('Adsorption Chiller')
+% axis([45 90 0 180])
 
 % figure(9)
 % clf
@@ -734,19 +742,21 @@ Qrej = -(Q34 + Q41)
 figure(10)
 clf
 hold on
+plot([h1 h2 h3 h4 h1]./1e3,...
+    [P1_water P2_water P3_water P4_water P1_water]./1e3,'rx-')
 plot(h12./1e3,P12_bed./1e3,'bx-')
 plot(h23./1e3,P23_bed./1e3,'bx-')
 plot(h34./1e3,P34_bed./1e3,'bx-')
 plot(h41./1e3,P41_bed./1e3,'bx-')
-
-plot([h1 h2 h3 h4]./1e3,...
-    [P1_water P2_water P3_water P4_water]./1e3,'rx-')
-
+text(h1/1e3,P1_water/1e3,'1')
+text(h2/1e3,P2_water/1e3,'2')
+text(h3/1e3,P3_water/1e3,'3')
+text(h4/1e3,P4_water/1e3,'4')
 plot(h_dome/1e3,P_dome./1e3,'k-')
 ylabel('P (kPa)')
 xlabel('Enthalpy (kJ/kg K)')
 title('Adsorption Chiller')
-% legend('Total','Desorbed')
+legend('Refrigerant','Bed')
 axis([-1.6e4 -1.3e4 1 5])
 
 plotfixer
