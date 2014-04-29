@@ -303,14 +303,15 @@ for T = T2_bed:dT:T3_bed
     
     Dm_des = -Dm_a;
     
-    dW_a = 0; %- volume * P_cond * Dq;
+    dW_a = - volume * P_cond * Dq;
     
     dQ_adsorbate = dU_a - dW_a - Dm_a * hg;  %changed mass of des to mass of ads
     %---------------------------------------------
 %     m_g_paper = (volume * rhog) * (porosity - (q * m_solid)/(volume * rho_a));
     Dm_g = Dm_des;
 %     m_g_t = m_total - m_a;
-    m_g = mg_prev + Dm_g;
+
+    m_g = mg_prev + Dm_g - m_leaving;
     
     du_g = ug - ug_prev;
     
@@ -323,7 +324,7 @@ for T = T2_bed:dT:T3_bed
     dQ_cond = Dm_cond * (hg - hf_low);
     
     
-    dQ_gas = dU_g - dW_g - Dm_g * hg + dQ_cond;
+    dQ_gas = dU_g - dW_g - Dm_g * hg; + dQ_cond;
     Qgas = Qgas + dQ_gas;
     %---------------------------------------------
     dQ23 = dQ_metal + dQ_solid + dQ_adsorbate + dQ_gas;
