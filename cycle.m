@@ -28,9 +28,10 @@ c_solid = 0.921e3; %J/kg*K  %silica gel
 
 % Adsorption Model parameters
 K = 5.5*10^-12; %Pa
-Qst = 2.37 *10^3;
-R = 8.314; %J/mol*K
+Qst = 2.37 *10^6; %J/kg
+R = 8314; %J/kmol*K
 MolarMass = meanMolarMass(water);
+Rwater = R/MolarMass; %J/kg*K
 
 %Hot water stream
 hot_V_dot = 18; %m^3/h
@@ -120,7 +121,7 @@ setState_Tsat(water,[T_amb 0]);
 rhoL = density(water);
 rho_a1 = rhoL;
 
-q_max = K*exp(Qst/(R/MolarMass*T_amb))*P_evap;  %mass adsorbate / mass solid
+q_max = K*exp(Qst/(Rwater*T_amb))*P_evap;  %mass adsorbate / mass solid
 
 m_a = q_max * m_solid;
 m_gas1 = open_volume * rhog1 * porosity;
@@ -148,7 +149,7 @@ ua_prev = ha - P_evap / rho_a;
 Q12 = 0;
 
 for P = P_evap:dP:P_cond
-    T = Qst/(R/MolarMass*log(q_max/(K*P)));
+    T = Qst/(Rwater*log(q_max/(K*P)));
     
     set(water,'P',P,'T',T);
 %     set(water_vap,'P',P,'T',T,'X','H2O:1');
@@ -301,7 +302,7 @@ for T = T2_bed:dT:T3_bed
     dQ_metal = m_metal * c_metal * dT;
     dQ_solid = m_solid * c_solid * dT;
     %-----------------------------------------
-    q = K*exp(Qst/(R/MolarMass*T))*P_cond;
+    q = K*exp(Qst/(Rwater*T))*P_cond;
     Dq = q - q_prev;
     
     m_a = q * m_solid;
@@ -418,7 +419,7 @@ T4_bed = temperature(water);
 rhoL = density(water);
 rho_a3 = rhoL;
 
-q_min = K*exp(Qst/(R/MolarMass*T_max))*P_cond;
+q_min = K*exp(Qst/(Rwater*T_max))*P_cond;
 
 dP = -(P_cond - P_evap)/10;
 T_prev = T_max;
@@ -430,7 +431,7 @@ i = 1;
 Q34 = 0;
 
 for P = P_cond:dP:P_evap
-    T = Qst/(R/MolarMass*log(q_min/(K*P)));
+    T = Qst/(Rwater*log(q_min/(K*P)));
     
     set(water_vap,'P',P,'T',T,'X','H2O:1');
     hg = enthalpy_mass(water_vap);
@@ -519,7 +520,7 @@ i = 1;
 dT = -(T4_bed - T1_bed)/10;
 
 for T = T4_bed:dT:T1_bed
-    q = K*exp(Qst/(R/MolarMass*T))*P_evap;
+    q = K*exp(Qst/(Rwater*T))*P_evap;
     
     set(water,'T',T,'P',P_evap);
 %     set(water_vap,'P',P_evap,'T',T,'X','H2O:1');
@@ -657,8 +658,8 @@ Qevap = y * m_evap * (hg - hf);
 [h_dome, s_dome, u_dome, T_dome, P_dome, v_dome] = vaporDome(water);
 
 fprintf('\n***************************************************************\n')
-m_cond;
-m_evap;
+m_cond
+m_evap
 
 Q12 = Q12/1e6
 Q23 = Q23/1e6
