@@ -101,6 +101,10 @@ density_amb = density(water_vap);
 % 
 % m_total = m_adsorbed + m_vapor;
 
+To = T_amb;
+Po = 101325;
+set(water_vap,'T',To,'P',Po,'X','H2O');
+mu_o = chemPotentials(water_vap);
 
 
 %-----------------------------------------------------
@@ -116,6 +120,9 @@ set(water,'T',T_amb,'P',P_evap);
 ug1 = intEnergy_mass(water);
 hg1 = enthalpy_mass(water);
 rhog1 = density(water);
+mu1 = chemPotentials(water);
+x1 = exergy_mass(water,To,Po,mu_o);
+f1 = flowExergy_mass(water,To,Po,mu_o);
 
 setState_Tsat(water,[T_amb 0]);
 rhoL = density(water);
@@ -127,16 +134,14 @@ m_a = q_max * m_solid;
 m_gas1 = open_volume * rhog1 * porosity;
 m_total = m_a + m_gas1;
 
+mdot_gas = 0;
+X1 = x1 * m_gas1;
+F1 = f1 * mdot_gas;
 
 P1_water = P_evap;
 T1_water = T_amb;
 P1_bed = P_evap;
 T1_bed = T_amb;
-
-% P2_water = P_cond;
-% T2_water = Qst/(R/MolarMass*log(q_max/(K*P_cond)));
-% P2_bed = P_cond;
-% T2_bed = T2_water;
 
 dP = (P_cond - P_evap)/10;
 i = 1;
@@ -233,13 +238,6 @@ Q_heating_ref = hot_m_dot*(hot_h_out - hot_h_in)/1e6  %reference value only
 %%--------------------------------------------------------------
 %Process 2-3 = Desorption and Condensation;  %constant P
 %%--------------------------------------------------------------
-% T_cond = cooling_T_in;  %condensation temperature
-% setState_Tsat(water,[T_cond 1]); %Vapor phase
-% set(water,'T',T_cond,'P',P_cond);
-% % P_cond = pressure(water);  %condensation pressure
-% hg2 = enthalpy_mass(water);
-% ug2 = intEnergy_mass(water);
-
 T_cond = cooling_T_in;  %condensation temperature
 setState_Tsat(water,[T_cond 0]); %liquid phase
 rhoL = density(water);
@@ -263,10 +261,14 @@ m_g2 = m_gas12(end);
 
 %Initial state
 set(water,'T',T2_bed,'P',P_cond);
-% P_cond = pressure(water);  %condensation pressure
 hg2 = enthalpy_mass(water);
 ug2 = intEnergy_mass(water);
+x2 = exergy_mass(water,To,Po,mu_o);
+f2 = flowExergy_mass(water,To,Po,mu_o);
 
+mdot_gas = 0;
+X2 = x2 * m_g2;
+F2 = f2 * mdot_gas;
 
 dT = (T3_bed - T2_bed)/10;
 q_prev = q_max;
@@ -394,14 +396,6 @@ T_cooling_out = temperature(water);
 Q_cooling_ref = cooling_m_dot*(cooling_h_out - cooling_h_in)/1e6
 
 
-
-%State 2
-% m_dot_water = cooling_m_dot;
-% h2 = h3-Q_cond/m_dot_water;
-% P2 = P_cond;
-% set(water,'P',P2,'H',h2);
-% T2 = temperature(water);
-
 %---------------------------------------------------
 %Process 3-4 = Cooling and Depressurization
 %----------------------------------------------------
@@ -413,6 +407,13 @@ set(water,'T',T_max,'P',P_cond);
 ug3 = intEnergy_mass(water);
 hg3 = enthalpy_mass(water);
 rhog3 = density(water);
+x3 = exergy_mass(water,To,Po,mu_o);
+f3 = flowExergy_mass(water,To,Po,mu_o);
+
+m_g3 = m_gas23(end);
+mdot_gas = 0;
+X3 = x3 * m_g3;
+F3 = f3 * mdot_gas;
 
 setState_Psat(water,[P_evap 0]);  %liquid
 T4_bed = temperature(water);
@@ -497,12 +498,18 @@ set(water_vap,'P',P_evap,'T',T4_bed,'X','H2O:1');
 ug4 = intEnergy_mass(water_vap);
 hg4 = enthalpy_mass(water_vap);
 rhog4 = density(water_vap);
+x4 = exergy_mass(water,To,Po,mu_o);
+f4 = flowExergy_mass(water,To,Po,mu_o);
 
 setState_Tsat(water,[T4_bed 0]); %liquid phase
 rhoL = density(water);
 
 m_a4 = q_min * m_solid;
 m_g4 = m_gas34(end);
+
+mdot_gas = 0;
+X4 = x4 * m_g4;
+F4 = f4 * mdot_gas;
 
 ha = hg4 - Qst;  %enthalpy of adsorbate phase
 rho_a = rhoL;
@@ -651,7 +658,7 @@ x = (h4 - hf)/(hg - hf);
 y = 1-x;
 
 %Evaporation
-hfg = hg - hf
+hfg = hg - hf;
 Qevap = y * m_evap * (hg - hf);
 
 
@@ -677,38 +684,44 @@ Qrej = -(Q34 + Q41 - Qcond)
 
 %% Figures
 
-% figure(1) % Temperature vs Pressure
-% clf
-% hold on
-% plot([T12_water T3_water T4_water T1_water]-273,...
-%     [P12_water P3_water P4_water P1_water]/1e3,'co-')
-% plot(chilled_T_in-273,P_evap/1e3,'ro')
-% plot(T12_bed-273,P12_bed/1e3,'x-')
-% plot(T23_bed-273,P23_bed/1e3,'x-')
-% plot(T34_bed-273,P34_bed/1e3,'x-')
-% plot(T41_bed-273,P41_bed/1e3,'x-')
-% xlabel('T(C)')
-% ylabel('P(kPa)')
-% title('Adsorption Chiller Cycle')
-% % legend('water','bed')
-% % axis([200 400 1000 5000])
-% hold off
-% 
-% figure(2) % Ln P vs -1/T
-% clf
-% semilogy(-1./T12_bed,P12_bed,'bx-')
-% hold on
-% semilogy(-1./[T12_water T3_water T4_water T1_water],...
-%     [P12_water P3_water P4_water P1_water],'ro-')
-% semilogy(-1./T23_bed,P23_bed,'bx-')
-% semilogy(-1./T34_bed,P34_bed,'bx-')
-% semilogy(-1./T41_bed,P41_bed,'bx-')
-% % axis([200 400 1000 5000])
-% hold off
-% xlabel('-1/T')
-% ylabel('lnP')
-% legend('bed','water')
-% title('Adsorption Chiller Cycle')
+figure(1) % Temperature vs Pressure
+clf
+hold on
+plot([T12_water T3_water T4_water T1_water]-273,...
+    [P12_water P3_water P4_water P1_water]/1e3,'co-')
+plot(chilled_T_in-273,P_evap/1e3,'ro')
+plot(T12_bed-273,P12_bed/1e3,'x-')
+plot(T23_bed-273,P23_bed/1e3,'x-')
+plot(T34_bed-273,P34_bed/1e3,'x-')
+plot(T41_bed-273,P41_bed/1e3,'x-')
+xlabel('T(C)')
+ylabel('P(kPa)')
+title('Adsorption Chiller Cycle')
+% legend('water','bed')
+% axis([200 400 1000 5000])
+hold off
+
+
+Tticks = [10 20 30 40 50 60 70 80 90]';
+ticklabels = num2str(Tticks);
+Tlabels = {ticklabels};
+figure(2) % Ln P vs -1/T
+clf
+semilogy(-1./T12_bed,P12_bed,'bx-')
+hold on
+semilogy(-1./[T12_water T3_water T4_water T1_water],...
+    [P12_water P3_water P4_water P1_water],'ro-')
+semilogy(-1./T23_bed,P23_bed,'bx-')
+semilogy(-1./T34_bed,P34_bed,'bx-')
+semilogy(-1./T41_bed,P41_bed,'bx-')
+% axis([200 400 1000 5000])
+hold off
+xlabel('Temperature (K)')
+ylabel('Pressure (MPa)')
+legend('bed','water')
+set(gca,'XTick',-1 ./ Tticks)
+set(gca,'XTickLabel',Tlabels)
+title('Duhring Plot for Adsorption Chiller Cycle')
 
 % figure(3) % Temperature vs Concentration
 % clf
@@ -833,10 +846,18 @@ text(P2_bed/1e3,m_cond23(1),'2')
 text(P3_bed/1e3,m_cond23(end),'3')
 text(P4_bed/1e3,m_evap41(1),'1')
 text(P1_bed/1e3,m_evap41(end),'4')
-text(3.9,80,'Condensation')
+text(3.75,80,'Condensation')
 text(3,140,'Throttling')
 text(1.7,80,'Evaporation')
 text(3,10,'Heating')
 title('Refrigerant Mass')
+
+
+figure(11)
+clf
+hold on
+plot([1 2 3 4],[X1 X2 X3 X4])
+
+
 
 plotfixer
