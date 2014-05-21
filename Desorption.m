@@ -8,7 +8,7 @@ water_vap = IdealGasMix('gri30.xml');
 global open_volume porosity
 global m_solid m_metal c_metal c_solid Qst
 global P_cond T_amb P_evap
-global j
+global j To Po
 
 setState_Tsat(water,[T_cond 0]); %liquid phase
 rhoL = density(water);
@@ -26,6 +26,9 @@ set(water,'T',T_init,'P',P_cond);
 % P_cond = pressure(water);  %condensation pressure
 hg2 = enthalpy_mass(water);
 ug2 = intEnergy_mass(water);
+x_init = exergy_mass(water);
+set(water,'T',T_init,'P',P_cond);
+f_init = flowExergy_mass(water);
 
 dT = (T_final - T_init)/10;
 q_prev = q_max;
@@ -144,8 +147,22 @@ for T = T_init:dT:T_final
     j = j + 1;
 end
 
+set(water,'T',T_cond,'P',P_cond);
+xin = x_init;
+xout = exergy_mass(water);
 
+set(water,'T',T_cond,'P',P_cond);
+fin = f_init;
+fout = flowExergy_mass(water);
 
+mdot = max(Desorb.m_ref);
+Qg = Qgas;
+Xin = mdot*fin + Qg*(1-(To/T_init));
+Xout = mdot*fout;
+
+Desorb.xin = fin;
+Desorb.xout = fout;
+Desorb.Xloss = Xin - Xout;
 
 end
 

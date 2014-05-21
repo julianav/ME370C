@@ -8,13 +8,16 @@ water_vap = IdealGasMix('gri30.xml');
 global open_volume porosity
 global m_solid m_metal c_metal c_solid Qst
 global P_cond P_evap T_max
-global j
+global j Po To
 
 T4_bed = T_init;
-set(water_vap,'P',P_evap,'T',T_init,'X','H2O:1');
-ug4 = intEnergy_mass(water_vap);
-hg4 = enthalpy_mass(water_vap);
-rhog4 = density(water_vap);
+set(water,'T',T_init,'P',P_evap);
+% set(water_vap,'P',P_evap,'T',T_init,'X','H2O:1');
+ug4 = intEnergy_mass(water);
+hg4 = enthalpy_mass(water);
+rhog4 = density(water);
+x_init = exergy_mass(water);
+f_init = flowExergy_mass(water);
 
 setState_Tsat(water,[T4_bed 0]); %liquid phase
 rhoL = density(water);
@@ -36,6 +39,8 @@ Q41 = 0;
 m_ads = 0;
 m_evap = 0;
 Q_evap = 0;
+Qsens = 0;
+Qgas = 0;
 i = 1;
 dT = -(T_init - T_final)/10;
 
@@ -89,6 +94,7 @@ for T = T_init:dT:T_final
     dU_g = m_g * du_g + ug * Dm_g;
     
     dQ_gas = dU_g - dW_a - Dm_g * h_ev;
+    Qgas = Qgas + dQ_gas;
     %--------------------------------------------------
     dQ41 = dQ_metal + dQ_solid + dQ_adsorbate + dQ_gas;
     %--------------------------------------------------
@@ -99,6 +105,8 @@ for T = T_init:dT:T_final
     %--------------------------------------------------
     Q41 = Q41 + dQ41;
     Q_evap = Q_evap + dQ_evap;
+    
+    Qsens = Qsens + dQ_metal + dQ_solid;
     
     m_ads = m_ads + Dm_ads;
     
@@ -116,6 +124,7 @@ for T = T_init:dT:T_final
     Adsorb.h(i) = hg;
     Adsorb.m_ref(j) = m_cond - m_evap;
     Adsorb.P_ref(j) = P_evap;
+    Adsorb.Q_sens = Qsens;
   
     T_prev = T;
     q_prev = q;
@@ -127,6 +136,24 @@ for T = T_init:dT:T_final
     i = i + 1;
     j = j + 1;
 end
+
+set(water,'T',T,'P',P_evap);
+
+% Adsorb.xin = x_init;
+% Adsorb.xout = exergy_mass(water);
+
+set(water,'T',T,'P',P_evap);
+fin = f_init;
+fout = flowExergy_mass(water);
+
+mdot = max(Adsorb.m_ref);
+Qg = Qgas;
+Xin = mdot*fin + Qg*(1-(To/T_init));
+Xout = mdot*fout;
+
+Adsorb.xin = fin;
+Adsorb.xout = fout;
+Adsorb.Xloss = Xin - Xout;
 
 
 end

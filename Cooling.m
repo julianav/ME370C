@@ -15,6 +15,7 @@ set(water,'T',T_max,'P',P_cond);
 ug3 = intEnergy_mass(water);
 hg3 = enthalpy_mass(water);
 rhog3 = density(water);
+x3 = exergy_mass(water);
 
 setState_Psat(water,[P_evap 0]);  %liquid
 rhoL = density(water);
@@ -77,7 +78,7 @@ for P = P_cond:dP:P_evap
     Cooling.m_ads(i) = m_a;
     Cooling.Q = Q34;
     Cooling.h(i) = hg;
-    Cooling. m_ref(j) = m_cond;
+    Cooling.m_ref(j) = m_cond;
     Cooling.P_ref(j) = P;
 
     T_prev = T;
@@ -87,7 +88,8 @@ for P = P_cond:dP:P_evap
     j = j + 1;
 end
 
-
+Cooling.x_in = x3;
+Cooling.x_out = exergy_mass(water);
 
 
 
