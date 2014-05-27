@@ -7,7 +7,7 @@ water_vap = IdealGasMix('gri30.xml');
 
 global open_volume
 global m_solid m_metal c_metal c_solid Qst
-global P_evap P_cond
+global P_evap P_cond To Po porosity
 global j
 
 % set(water_vap,'P',P_evap,'T',T_amb,'X','H2O:1');
@@ -15,23 +15,42 @@ set(water,'T',T_max,'P',P_cond);
 ug3 = intEnergy_mass(water);
 hg3 = enthalpy_mass(water);
 rhog3 = density(water);
-x3 = exergy_mass(water);
+
+xgas3 = exergy_mass(water);
+Xsolid3 = m_solid*(c_solid*(T_max-To) - To*c_solid*log(T_max/To));
+Xmetal3 = m_metal*(c_metal*(T_max-To) - To*c_metal*log(T_max/To));
 
 setState_Psat(water,[P_evap 0]);  %liquid
 rhoL = density(water);
 rho_a3 = rhoL;
+sa = entropy_mass(water);
 
 q_min = Adsorbate_Con_Ratio(T_max,P_cond);
+
+m_a = q_min * m_solid;
+m_gas = open_volume * rhog3 * porosity;
+m_total = m_a + m_gas;
+
+ha = hg3 - Qst;  %enthalpy of adsorbate phase
+rho_a = rhoL;
+ua_prev = ha - P_evap / rho_a;
+
+ref = importPhase('liquidVapor.xml','water');
+set(ref,'T',To,'P',Po);
+uo = intEnergy_mass(ref);
+vo = 1/density(ref);
+so = entropy_mass(ref);
+mo = open_volume * 1/vo * porosity;
+
+% mo = m_a;
+Xads3 = (m_a*ua_prev-mo*uo)+Po*(m_a/rho_a3*mo*vo)-To*(m_a*sa-mo*so);
+X3 = m_gas*xgas3 + Xads3 + Xsolid3 + Xmetal3;
 
 dP = -(P_cond - P_evap)/10;
 T_prev = T_max;
 ug_prev = ug3;
-ha = hg3 - Qst;  %enthalpy of adsorbate phase
-rho_a = rhoL;
-ua_prev = ha - P_evap / rho_a;
 i = 1;
 Q34 = 0;
-
 for P = P_cond:dP:P_evap
     T = T_isosteric(q_min,P);
     
@@ -42,6 +61,7 @@ for P = P_cond:dP:P_evap
     
     setState_Tsat(water,[T 0]);
     rhoL = density(water);
+    sa = entropy_mass(water);
     
     %---------------------------------------------------
     dT = T - T_prev;
@@ -88,8 +108,16 @@ for P = P_cond:dP:P_evap
     j = j + 1;
 end
 
-Cooling.x_in = x3;
-Cooling.x_out = exergy_mass(water);
+set(water,'T',T,'P',P);
+Xgas4 = m_gas*exergy_mass(water);
+Xsolid4 = m_solid*(c_solid*(T-To)- To*c_solid*log(T/To));
+Xmetal4 = m_metal*(c_metal*(T-To)- To*c_metal*log(T/To));
+Xads4 = (m_a*u_a-mo*uo)+Po*(m_a/rho_a-mo*vo)-To*(m_a*sa-mo*so);
+
+X4 = Xgas4 + Xads4 + Xsolid4 + Xmetal4;
+
+DX = X4 - X3;
+Cooling.Xloss = -DX;%+ Q34*(1-To/T);
 
 
 

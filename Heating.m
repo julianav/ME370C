@@ -7,22 +7,27 @@ water_vap = IdealGasMix('gri30.xml');
 
 global open_volume porosity 
 global m_solid m_metal c_metal c_solid Qst
-global P_evap P_cond T_amb
+global P_evap P_cond T_amb To Po
 global j
 
-setState_Tsat(water,[T_evap 1]);  %vapor
+% setState_Tsat(water,[T_evap 1]);  %vapor
 
 set(water,'T',T_amb,'P',P_evap);
 ug1 = intEnergy_mass(water);
 hg1 = enthalpy_mass(water);
 rhog1 = density(water);
-x_gas = exergy_mass(water);
-f_gas = flowExergy_mass(water);
 
+xgas1 = exergy_mass(water);
+Xsolid1 = m_solid*(c_solid*(T_amb-To) - To*c_solid*log(T_amb/To));
+Xmetal1 = m_metal*(c_metal*(T_amb-To) - To*c_metal*log(T_amb/To));
 
 setState_Tsat(water,[T_amb 0]); %liquid
+Ptest = pressure(water);
 rhoL = density(water);
 rho_a1 = rhoL;
+sa = entropy_mass(water);
+uatest = intEnergy_mass(water);
+xadstest = exergy_mass(water);
 
 q_max = Adsorbate_Con_Ratio(T_amb,P_evap);
 
@@ -32,8 +37,8 @@ V = open_volume;
 n_init = (P_evap*V)/(R*T_amb);
 
 m_a = q_max * m_solid;
-m_gas1 = open_volume * rhog1 * porosity;
-m_total = m_a + m_gas1;
+m_gas = open_volume * rhog1 * porosity;
+m_total = m_a + m_gas;
 n_total = (m_total/MolarMass)*1000;
 
 P1_water = P_evap;
@@ -41,15 +46,25 @@ T1_water = T_amb;
 P1_bed = P_evap;
 T1_bed = T_amb;
 
-dP = (P_cond - P_evap)/10;
-i = 1;
-T_prev = T1_water;
 ug_prev = ug1;
 ha = hg1 - Qst;  %enthalpy of adsorbate phase
 ua_prev = ha - P_evap / rho_a1;
+
+ref = importPhase('liquidVapor.xml','water');
+set(ref,'T',To,'P',Po);
+uo = intEnergy_mass(ref);
+vo = 1/density(ref);
+so = entropy_mass(ref);
+mo = open_volume * 1/vo * porosity;
+
+Xads1 = (m_a*ua_prev-mo*uo)+Po*(m_a/rho_a1-mo*vo)-To*(m_a*sa-mo*so);
+X1 = m_gas*xgas1 + Xads1 + Xsolid1 + Xmetal1;
+
+T_prev = T1_water;
+dP = (P_cond - P_evap)/10;
 Q12 = 0;
 n = n_init;
-
+i = 1;
 for P = P_evap:dP:P_cond
     T = T_isosteric(q_max,P);
     n = (P*V)/(R*T);
@@ -60,10 +75,11 @@ for P = P_evap:dP:P_cond
     rhog = density(water);
     ug = intEnergy_mass(water);
     sg = entropy_mass(water);
+%     xgas = exergy_mass(water);
     
     setState_Tsat(water,[T 0]);  %liquid
     rhoL = density(water);
-    ua = intEnergy_mass(water);
+%     ua = intEnergy_mass(water);
     sa = entropy_mass(water);
     
     %---------------------------------------------
@@ -81,27 +97,21 @@ for P = P_evap:dP:P_cond
     u_a = ha - P / rho_a;
     du_a = u_a - ua_prev;
     
+%     Du = (u_a-uo);
+%     Dv = (1/rho_a-vo);
+%     Ds = (sa-so);
+%     xads2 = (u_a-uo)+Po*(1/rho_a-vo)-To*(sa-so);
+%    
     dQ_adsorbate = m_a * du_a - dW;
     %----------------------------------------------
-    m_g = m_total - m_a;
+%     m_g = m_total - m_a;
     du_g = ug - ug_prev;
-    dQ_gas = -dW + m_g * du_g;
+    dQ_gas = -dW + m_gas * du_g;
     %-----------------------------------------------
     dQ12 = dQ_metal + dQ_solid + dQ_adsorbate + dQ_gas;
     %-----------------------------------------------
     Q12 = Q12 + dQ12;
-    
-    %Exergy
-    Ads.u = u_a;
-    Ads.s = sa;
-    Ads.v = 1/rho_a;
-    Ads.m = m_a;
-    Gas.u = ug;
-    Gas.s = sg;
-    Gas.v = 1/rhog;
-    Gas.m = m_g;
-    %X = exergy(T,P,Ads,Gas,dead);
-    
+   
     
     %graphing
     Heating.T_water(i) = T;
@@ -109,7 +119,7 @@ for P = P_evap:dP:P_cond
     Heating.T_bed(i) = T;
     Heating.P_bed(i) = P;
     Heating.q(i) = q_max;
-    Heating.m_gas(i) = m_g;
+    Heating.m_gas(i) = m_gas;
     Heating.m_ads(i) = m_a;
     Heating.Q = Q12;
     Heating.h(i) = hg;
@@ -124,7 +134,19 @@ end
 
 n_final = (P*V)/(R*T);
 
-set(water,'T',Heating.T_water(end),'P',Heating.P_water(end));
+T_final = Heating.T_water(end);
+set(water,'T',T_final,'P',Heating.P_water(end));
+Xgas2 = m_gas*exergy_mass(water);
+Xsolid2 = m_solid*(c_solid*(T_final-To)- To*c_solid*log(T_final/To));
+Xmetal2 = m_metal*(c_metal*(T_final-To)- To*c_metal*log(T_final/To));
+Xads2 = (m_a*u_a-mo*uo)+Po*(m_a/rho_a-mo*vo)-To*(m_a*sa-mo*so);
+
+X2 = Xgas2 + Xads2 + Xsolid2 + Xmetal2;
+
+DX = X2 - X1;
+Heating.Xloss = -DX;% + Q12*(1-To/T);
+
+end
 
 % xin = x1;
 % xout = exergy_mass(water);
@@ -133,6 +155,3 @@ set(water,'T',Heating.T_water(end),'P',Heating.P_water(end));
 % 
 % Xin = mdot*xin + Qg*(1+(To/Tg))
 % Xout = mdot*xout
-
-end
-
