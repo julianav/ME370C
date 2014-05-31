@@ -1,14 +1,13 @@
-function [ Adsorb ] = Adsorption( T_init,T_final,m_init,m_cond )
+function [ Adsorb ] = Adsorption( T_init,T_final,m_init,m_cond,Flowxin )
 %UNTITLED11 Summary of this function goes here
 %   Detailed explanation goes here
 
 water = importPhase('liquidVapor.xml','water');
-water_vap = IdealGasMix('gri30.xml');
 
 global open_volume porosity
 global m_solid m_metal c_metal c_solid Qst
 global P_cond P_evap T_max
-global j Po To
+global j Po To Rwater
 
 T4_bed = T_init;
 set(water,'T',T_init,'P',P_evap);
@@ -16,6 +15,8 @@ set(water,'T',T_init,'P',P_evap);
 ug4 = intEnergy_mass(water);
 hg4 = enthalpy_mass(water);
 rhog4 = density(water);
+sg4 = entropy_mass(water);
+sa4 = sg4 - (Qst/T_init-Rwater);
 
 xgas4 = exergy_mass(water);
 Xsolid4 = m_solid*(c_solid*(T_init-To) - To*c_solid*log(T_init/To));
@@ -23,7 +24,7 @@ Xmetal4 = m_metal*(c_metal*(T_init-To) - To*c_metal*log(T_init/To));
 
 setState_Tsat(water,[T4_bed 0]); %liquid phase
 rhoL = density(water);
-sa = entropy_mass(water);
+% sa4 = entropy_mass(water);
 
 q_min = Adsorbate_Con_Ratio(T_max,P_cond);
 
@@ -32,7 +33,7 @@ m_g4 = m_init;
 
 ha = hg4 - Qst;  %enthalpy of adsorbate phase
 rho_a = rhoL;
-ua_prev = ha - P_cond / rho_a;
+ua_prev = ha - P_evap / rho_a;
 
 ref = importPhase('liquidVapor.xml','water');
 set(ref,'T',To,'P',Po);
@@ -42,7 +43,7 @@ so = entropy_mass(ref);
 mo = open_volume * 1/vo * porosity;
 
 mo=m_a4;
-Xads4 = (m_a4*ua_prev-mo*uo)+Po*(m_a4/rho_a-mo*vo)-To*(m_a4*sa-mo*so);
+Xads4 = (m_a4*ua_prev-mo*uo)+Po*(m_a4/rho_a-mo*vo)-To*(m_a4*sa4-mo*so);
 X4 = m_g4*xgas4 + Xads4 + Xsolid4 + Xmetal4;
 
 q_prev = q_min;
@@ -56,6 +57,7 @@ m_evap = 0;
 Q_evap = 0;
 Qsens = 0;
 Qgas = 0;
+XofQ = 0;
 FlowXin = 0;
 FlowXout = 0;
 i = 1;
@@ -69,6 +71,7 @@ for T = T_init:dT:T_final
     rhog = density(water);
     ug = intEnergy_mass(water);
     flow_x = flowExergy_mass(water);
+    sg = entropy_mass(water);
 
     mg_capacity = open_volume * rhog * porosity;
     
@@ -77,6 +80,7 @@ for T = T_init:dT:T_final
     
     setState_Tsat(water,[T 0]);
     rhoL = density(water);
+    sa = entropy_mass(water);
     
     %--------------------------------------------------
 %     dT = T - T_prev;
@@ -127,12 +131,14 @@ for T = T_init:dT:T_final
     
     m_ads = m_ads + Dm_ads;
     
-    dFlowXin = flow_x * Dm_entering;
-    dFlowXout = flow_x * Dm_ads;
-    
+    dFlowXin = Flowxin * Dm_entering;
+%     dFlowXout = flow_x * Dm_ads;
+%     
     FlowXin = FlowXin + dFlowXin;
-    FlowXout = FlowXout + dFlowXout;
-
+%     FlowXout = FlowXout + dFlowXout;
+    
+    dXofQ = dQ41*(1-To/T);
+    XofQ = XofQ + dXofQ;
     
     %graphing
 %     T41_water(i) = T;  %?????
@@ -162,6 +168,7 @@ for T = T_init:dT:T_final
 end
 
 set(water,'T',T,'P',P_evap);
+sa = sg - (Qst/T-Rwater);
 mo = m_a;
 Xgas1 = m_g*exergy_mass(water);
 Xsolid1 = m_solid*(c_solid*(T_final-To) - To*c_solid*log(T_final/To));
@@ -170,11 +177,15 @@ Xads1 = (m_a*u_a-mo*uo)+Po*(m_a/rho_a-mo*vo)-To*(m_a*sa-mo*so);
 
 X1 = Xgas1 + Xads1 + Xsolid1 + Xmetal1;
 
+% fprintf('\nAdsorb\n')
 DX = X1 - X4;
 % DFlowX = FlowXin - FlowXout;
 
-Adsorb.Xloss = FlowXin - DX;
-
+% Adsorb.Xloss = FlowXin + Q41*(1-To/T) - DX; %Q is negative, flowX is negative
+FlowXin;
+Adsorb.Xloss = FlowXin + XofQ - DX; 
+Adsorb.FlowXin = FlowXin;
+Adsorb.DX = DX;
 end
 
 

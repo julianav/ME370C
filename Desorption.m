@@ -3,21 +3,20 @@ function [ Desorb ] = Desorption( T_cond,T_init,T_final,m_init)
 %   Detailed explanation goes here
 
 water = importPhase('liquidVapor.xml','water');
-water_vap = IdealGasMix('gri30.xml');
 
 global open_volume porosity
 global m_solid m_metal c_metal c_solid Qst
-global P_cond T_amb P_evap
-global j To Po
+global P_cond T_low P_evap
+global j To Po Rwater
 
 setState_Tsat(water,[T_cond 0]); %liquid phase
 rhoL = density(water);
-sa = entropy_mass(water);
+% sa = entropy_mass(water);
 
 setState_Tsat(water,[T_cond,0]);
 hf_low = enthalpy_mass(water);
 
-q_max = Adsorbate_Con_Ratio(T_amb,P_evap);
+q_max = Adsorbate_Con_Ratio(T_low,P_evap);
 
 m_a2 = q_max * m_solid;
 m_g2 = m_init;
@@ -27,6 +26,8 @@ set(water,'T',T_init,'P',P_cond);
 % P_cond = pressure(water);  %condensation pressure
 hg2 = enthalpy_mass(water);
 ug2 = intEnergy_mass(water);
+sg2 = entropy_mass(water);
+sa2 = sg2 - (Qst/T_init - Rwater);
 Xgas2 = m_g2*exergy_mass(water);
 Xsolid2 = m_solid*(c_solid*(T_init-To) - To*c_solid*log(T_init/To));
 Xmetal2 = m_metal*(c_metal*(T_init-To) - To*c_metal*log(T_init/To));
@@ -42,7 +43,7 @@ vo = 1/density(ref);
 so = entropy_mass(ref);
 mo = open_volume * 1/vo * porosity;
 mo = m_a2;
-Xads2 = (m_a2*ua_prev-mo*uo)+Po*(m_a2/rho_a-mo*vo)-To*(m_a2*sa-mo*so);
+Xads2 = (m_a2*ua_prev-mo*uo)+Po*(m_a2/rho_a-mo*vo)-To*(m_a2*sa2-mo*so);
 X2 = Xgas2 + Xads2 + Xsolid2 + Xmetal2;
 
 q_prev = q_max;
@@ -52,6 +53,7 @@ mg_prev = m_g2;
 Qcond = 0;
 Q23 = 0;
 Qgas = 0;
+XofQ = 0;
 m_des = 0;
 m_leaving_prev = 0;
 m_cond = 0;
@@ -66,7 +68,8 @@ for T = T_init:dT:T_final
     ug = intEnergy_mass(water);
     rhog = density(water);
     flow_x = flowExergy_mass(water);
-    
+    sg = entropy_mass(water);
+        
     mg_capacity = open_volume * rhog * porosity;
 
     setState_Tsat(water,[T 0]); %liquid
@@ -90,8 +93,10 @@ for T = T_init:dT:T_final
     dU_a = m_a * du_a + u_a * Dm_a;
     
     Dm_des = -Dm_a;
-    
-    dW_a = - open_volume * P_cond * Dq;
+     
+    dtheta = (Dm_a/rhoL)/open_volume;  
+    dW_a = - open_volume * P_cond * dtheta;%Dq;
+
     
     dQ_adsorbate = dU_a - dW_a - Dm_a * hg;  %changed mass of des to mass of ads
     %---------------------------------------------
@@ -135,6 +140,10 @@ for T = T_init:dT:T_final
     FlowXin = FlowXin + dFlowXin;
     FlowXout = FlowXout + dFlowXout;
     
+    dXofQ = dQ23*(1-To/T);
+    XofQ = XofQ + dXofQ;  
+    
+    
     %graphing
 %     Desorb.T_water(i) = T;  %?????
     Desorb.P_water(i) = P_cond;
@@ -165,6 +174,8 @@ for T = T_init:dT:T_final
 end
 
 % mgss = max(Desorb.m_gas)
+
+sa = sg - (Qst/T - Rwater);
 mo = m_a;
 set(water,'T',T_final,'P',P_cond);
 Xgas3 = m_g*exergy_mass(water);
@@ -174,11 +185,22 @@ Xads3 = (m_a*u_a-mo*uo)+Po*(m_a/rho_a-mo*vo)-To*(m_a*sa-mo*so);
 
 X3 = Xgas3 + Xads3 + Xsolid3 + Xmetal3;
 
+% fprintf('\nDesorb\n')
 DX = X3-X2;
-% DFlowX = FlowXin - FlowXout;
 
-Desorb.Xloss = - FlowXout - DX; %+ Q23*(1-To/T_final);
+%Heating stream
+% set(water,'T',Thotstream,'P',Po);
+% heating_hin = enthalpy_mass(water);
+% 
+% heating_hout = heating_hin - Q23/mdot_heating;
+% set(water,'P',Po,'H',heating_hout);
+% heatingToutFinal = temperature(water)-273;
 
+
+% Desorb.Xloss = Q23*(1-To/T_final) - FlowXout - DX;
+Desorb.Xloss = XofQ - FlowXout - DX;
+Desorb.DX = DX;
+Desorb.FlowXout = FlowXout;
 end
 
 % set(water,'T',T_cond,'P',P_cond);

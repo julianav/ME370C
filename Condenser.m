@@ -1,4 +1,4 @@
-function [ Cond ] = Condenser(mr,mc,T2)
+function [ Cond ] = Condenser(mr,T2)
 %UNTITLED5 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -8,7 +8,7 @@ water = importPhase('liquidVapor.xml','water');
 
 set(water,'T',T2,'P',P_cond); %incoming state
 hin = enthalpy_mass(water);
-xin = flowExergy_mass(water);
+FlowXin = mr*flowExergy_mass(water);
 
 setState_Psat(water,[P_cond,1]); %vapor
 Tg = temperature(water);
@@ -18,7 +18,7 @@ Qsens = mr*(hg - hin);
 
 setState_Psat(water,[P_cond,0]); %liquid
 hf = enthalpy_mass(water);
-xout = flowExergy_mass(water);
+FlowXout = mr*flowExergy_mass(water);
 
 hfg = hf - hg;
 Qlat = mr*hfg;
@@ -28,11 +28,18 @@ Qcond = Qsens + Qlat;
 % Qcond_hfg = mr*hfg;
 % Qcond = mr * (hout - hin);
 
-Xin = mr*xin;
-Xout = mr*xout;
-Xloss = Xin - Xout;% + Qcond*(1-To/T_cond);
+XofQ = 0;
+dT = (Tg-T2)/10;
+for T = T2:dT:Tg
+    dXofQ = Qcond/(-dT)*(1-To/T);
+    XofQ = XofQ + dXofQ;
+end
 
-Cond.xout = xout;
+DX = 0;
+Xloss = FlowXin - FlowXout + Qcond*(1-To/Tg) - DX;
+Xloss2 = FlowXin - FlowXout + XofQ - DX;
+
+Cond.xout = FlowXout;
 Cond.Qcond = Qcond;
 % Cond.Qcond_hfg = Qcond_hfg;
 Cond.Xloss = Xloss;

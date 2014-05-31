@@ -9,29 +9,42 @@ water = importPhase('liquidVapor.xml','water');
 %incoming state
 set(water,'P',P_evap,'H',hin);
 y = (1-vaporFraction(water));
-xin = flowExergy_mass(water);
+FlowXin = mr*flowExergy_mass(water);
+h1 = enthalpy_mass(water);
+s1 = entropy_mass(water);
 
-setState_Psat(water,[P_evap,0]);
-hf = enthalpy_mass(water);
+% setState_Psat(water,[P_evap,0]);
+% hf = enthalpy_mass(water);
 setState_Psat(water,[P_evap,1]);
 hg = enthalpy_mass(water);
-hfg = hf - hg;
+% hfg = hf - hg;
 
-Qlat = -mr*hfg*y;
+% Qlat = -mr*hfg*y;
+Qlat = mr*(hg-hin);
 
 set(water,'T',T1,'P',P_evap);
+% setState_Psat(water,[P_evap 1]);
 hout = enthalpy_mass(water);
-xout = flowExergy_mass(water);
+FlowXout = mr*flowExergy_mass(water);
+h2 = enthalpy_mass(water);
+s2 = entropy_mass(water);
 
 Qsens = mr*(hout - hg);
 
 Qevap = Qlat + Qsens;
 
-Xin = mr*xin ;
-Xout = mr*xout;
-Xloss = Xin - Xout;% + Qevap*(1-(To/T_evap));
+DX = 0;
 
+% dFlowX = mr*((h1-h2)-To*(s1-s2))
+% dFlowX2 = FlowXin - FlowXout
 
+Xloss = FlowXin + Qevap*(1-(To/T_evap)) - FlowXout - DX;
+
+Evap.Qevap = Qevap;
+Evap.Xloss = Xloss;
+Evap.Flowxout = FlowXout/mr;
+Evap.FlowXout = FlowXout;
+Evap.FlowXin = FlowXin;
 
 %%
 
@@ -65,10 +78,6 @@ Xloss = Xin - Xout;% + Qevap*(1-(To/T_evap));
 
 
 
-%%
-Evap.Qevap = Qevap;
-% Evap.Qevap_hfg = Qevap_hfg;
-Evap.Xloss = Xloss;
 
 
 end
