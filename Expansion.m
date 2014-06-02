@@ -36,7 +36,7 @@ Exp.y = y;
 Exp.hfg = hfg;
 Exp.hout = h;
 % Exp.xout = FlowXout/m;
-Exp.Xloss = Xloss;
+Exp.XexpDest = Xloss;
 
 end
 

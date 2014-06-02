@@ -1,4 +1,4 @@
-function[Outputs] = multicycle(hot_T_in,chilled_T_in,cooling_T_in,hot_T_diff,chilled_T_diff,cooling_T_diff)
+function[Outputs] = multicycle(p,hot_T_in,chilled_T_in,cooling_T_in,hot_T_diff,chilled_T_diff,cooling_T_diff)
 
 % clear all
 % format compact
@@ -17,8 +17,8 @@ global To Po
 % global dead
 global Qst K Rwater R
 
-T_low = 300;
-To = 298;
+T_low = cooling_T_in;
+To = 300;
 Po = 101325;
 % set(water_vap,'T',dead.To,'P',dead.Po,'X','H2O');
 % set(water,'T',dead.To,'P',dead.Po);
@@ -29,8 +29,12 @@ Po = 101325;
 
 cycletime = 6*60; %second %3minutes
 
+evapEff = 1;
+condEff = 1;
+adsorberEff = 1;%(hot_T_in - cooling_T_in)/52;
+
 %Properties
-volume = 2.5; %3.1*.9*.9;  %m^3 chamber volume find value
+volume = 2.85; %3.1*.9*.9;  %m^3 chamber volume find value
 adsorbent_density = 800; %800kg/m^3
 porus_volume = 0.35; %ml/kg
 water_content = 0; %percent
@@ -56,7 +60,7 @@ c_metal = (c_Cu * m_Cu + c_Al * m_Al)/(m_Cu + m_Al);
 c_solid = 0.921e3; %J/kg*K  %silica gel
 
 % Adsorption Model parameters
-K = 2*10^-12; %Pa
+K = 2*10^-12; %1/Pa
 Qst = 2.51 *10^6; %J/kg
 % Qst = 2.693*10^6;
 R = 8314; %J/kmol*K
@@ -106,8 +110,8 @@ for cycle = 1:1
     %     end
 %-----------------------------------------------------------
     %CONDENSATION
-    T2 = AdsorbA_Desorb.T_bed(end);
-    m_ref = max(AdsorbA_Desorb.m_cond);
+%     T2 = AdsorbA_Desorb.T_bed(end);
+    m_ref = max(AdsorbA_Desorb.m_ref);
     Cond = Condenser(m_ref,T_max);
     Qcond = Cond.Qcond;
 %-----------------------------------------------------------
@@ -169,7 +173,9 @@ Qhotpaper = HotStream.Qheating;
 mhotpaper = HotStream.m_dot;
 hin = HotStream.h_in;
 hout = HotStream.h_out;
-Qhot = (AdsorbA_Heating.Q + AdsorbA_Desorb.Q_des)/cycletime;
+Qh = AdsorbA_Heating.Q;
+Qdes = AdsorbA_Desorb.Q_des;
+Qhot = adsorberEff*(AdsorbA_Heating.Q + AdsorbA_Desorb.Q_des)/cycletime;
 mdot_hot = (-Qhot)/(hout-hin);
 % fprintf('Qpaper = %.2f kW\n',Qhotpaper)
 fprintf('Qhot = %.2f kW\n',Qhot/1e3)
@@ -181,7 +187,8 @@ Qchilpaper = ChilStream.Qchilled;
 mchilpaper = ChilStream.m_dot;
 hin = ChilStream.h_in;
 hout = ChilStream.h_out;
-Qchil = Evap.Qevap/cycletime;
+Dh = hout-hin;
+Qchil = evapEff*Evap.Qevap/cycletime;
 mdot_chil = (-Qchil)/(hout-hin);
 % fprintf('Qpaper = %.2f kW\n',Qchilpaper)
 fprintf('Qchil = %.2f kW\n',Qchil/1e3)
@@ -193,10 +200,10 @@ Qcoolpaper = CoolStream.Qcooling;
 mcoolpaper = CoolStream.m_dot;
 hin = CoolStream.h_in;
 hout = CoolStream.h_out;
-Qcool = (AdsorbA_Cooling.Q + AdsorbA_Adsorb.Q + Qcond)/cycletime;
+Qcool = (AdsorbA_Cooling.Q + AdsorbA_Adsorb.Q + condEff*Qcond)/cycletime;
 mdot_cool = (-Qcool)/(hout-hin);
 % fprintf('Qpaper = %.2f kW\n',Qcoolpaper)
-fprintf('Qcool = %.2f kW\n',Qcool/1e3)
+% fprintf('Qcool = %.2f kW\n',Qcool/1e3)
 % fprintf('mdotpaper = %.2f kg/s\n',mcoolpaper)
 % fprintf('mdot_cool = %.2f kg/s\n',mdot_cool)
 % fprintf('***************************************************************\n')
@@ -212,36 +219,40 @@ XheatingDest = HotFlowXin - HotFlowXout - DesFlowXout - DesDX;
 
 ChilFlowXin = mdot_chil*ChilStream.FlowXin;
 ChilFlowXout = mdot_chil*ChilStream.FlowXout;
-EvapFlowXin = Evap.FlowXin/(3*60);
-EvapFlowXout = Evap.FlowXout/(3*60);
+EvapFlowXin = Evap.FlowXin/(6*60);
+EvapFlowXout = Evap.FlowXout/(6*60);
 XchilDest = ChilFlowXin + EvapFlowXin - ChilFlowXout - EvapFlowXout;
 
 CoolFlowXin = mdot_cool*CoolStream.FlowXin;
 CoolFlowXout = mdot_cool*CoolStream.FlowXout;
+DXCoolFlow = CoolFlowXin - CoolFlowXout;
 AdsFlowXin = AdsorbA_Adsorb.FlowXin/cycletime;
 AdsDX = AdsorbA_Adsorb.DX/cycletime;
 XcoolDest = CoolFlowXin + AdsFlowXin - CoolFlowXout - AdsDX;
+
+XexpanDest = Exp.XexpDest/cycletime;
 
 DXHot = HotFlowXin - HotFlowXout;
 DXChil = ChilFlowXin - ChilFlowXout;
 Xefficiency = -DXChil/DXHot;
 
+Xsystem = XheatingDest + XcoolDest + XcoolDest + XexpanDest;
 % fprintf('Xefficiency = %.2f',Xefficiency)
 
 
 [h_dome, s_dome, u_dome, T_dome, P_dome, v_dome] = vaporDome(water);
 
 fprintf('\n***************************************************************\n')
-
-Xheating = AdsorbA_Heating.Xloss/1e6;
-Xdesorb = AdsorbA_Desorb.Xloss/1e6;
-Xcond = Cond.Xloss/1e6;
-Xcooling = AdsorbA_Cooling.Xloss/1e6;
-Xevap = Evap.Xloss/1e6;
-Xadsorb = AdsorbA_Adsorb.Xloss/1e6;
-Xexpan = Exp.Xloss/1e6;
-Xloss_system = Xheating + Xdesorb + Xcond + Xcooling + Xevap + Xadsorb + Xexpan;
-Xefficiency = (Xevap)/(Xloss_system);
+% 
+% Xheating = AdsorbA_Heating.Xloss/1e6;
+% Xdesorb = AdsorbA_Desorb.Xloss/1e6;
+% Xcond = Cond.Xloss/1e6;
+% Xcooling = AdsorbA_Cooling.Xloss/1e6;
+% Xevap = Evap.Xloss/1e6;
+% Xadsorb = AdsorbA_Adsorb.Xloss/1e6;
+% Xexpan = Exp.Xloss/1e6;
+% Xloss_system = Xheating + Xdesorb + Xcond + Xcooling + Xevap + Xadsorb + Xexpan;
+% Xefficiency = (Xevap)/(Xloss_system);
 
 % fprintf('Xheating = %.2f MJ\n',Xheating)
 % fprintf('Xdesorption = %.2f MJ\n',Xdesorb)
@@ -263,19 +274,21 @@ QevapMJ = Qevap/1e6;
 QcondMJ = Qcond/1e6;
 Qin = (Q_heating+Q_desorb);
 
-% fprintf('Qheating = %.2f MJ\n',Q_heating)
-% fprintf('Qdesorption = %.2f MJ\n',Q_desorb)
-% fprintf('Qcondensation = %.2f MJ\n',QcondMJ)
-% fprintf('Qcooling = %.2f MJ\n',Q_cooling)
-% fprintf('Qevaporation = %.2f MJ\n',QevapMJ)
-% fprintf('Qadsorption = %.2f MJ\n',Q_adsorb)
+fprintf('Qheating = %.2f MJ\n',Q_heating)
+fprintf('Qdesorption = %.2f MJ\n',Q_desorb)
+fprintf('Qcondensation = %.2f MJ\n',QcondMJ)
+fprintf('Qcooling = %.2f MJ\n',Q_cooling)
+fprintf('Qevaporation = %.2f MJ\n',QevapMJ)
+fprintf('Qadsorption = %.2f MJ\n',Q_adsorb)
 
 COP = Qchil/Qhot;
 CoolingCap = (Qchil/1e3);
-CoolingCap_perHot = Qevap/Qhot;
+CoolingCap_perHot = Qchil/mdot_hot;
+Cooling_perHot = mdot_chil/mdot_hot;
 fprintf('COP = %.2f \n',COP)
-% fprintf('Cooling Capacity = %.2f kW\n',CoolingCap)
-% fprintf('Cooling Capacity = %.2f kJ/mass solid\n',CoolingCap_perHot)
+fprintf('Cooling Capacity = %.2f kW\n',CoolingCap)
+fprintf('Cooling Capacity = %.2f mdot_chil/mdot_hot\n',Cooling_perHot)
+fprintf('Cooling Capacity = %.2f kW Chil/(kg/s)Hot\n',CoolingCap_perHot)
 
 Qadd = (Q_heating + Q_desorb + QevapMJ);
 Qrej = -(Q_cooling + Q_adsorb + QcondMJ);
@@ -286,27 +299,33 @@ error = (Qadd - Qrej)/(Qadd) * 100;
 % m_util = 1 - (q_min/q_max)
 
 %Figures
-% Tticks = [10 20 30 40 50 60 70 80 90]+273';
-% ticklabels = num2str(Tticks-273);
-% Tlabels = {ticklabels};
-% figure(1) % Ln P vs -1/T
-% clf
-% semilogy(-1./AdsorbA_Heating.T_bed,AdsorbA_Heating.P_bed/1e3,'bx-')
-% hold on
-% semilogy(-1./[T1_water T2_water T3_water T4_water T1_water],...
-%     [P1_water P2_water P3_water P4_water P1_water]/1e3,'ro-')
-% semilogy(-1./AdsorbA_Desorb.T_bed,AdsorbA_Desorb.P_bed/1e3,'bx-')
-% semilogy(-1./AdsorbA_Cooling.T_bed,AdsorbA_Cooling.P_bed/1e3,'bx-')
-% semilogy(-1./AdsorbA_Adsorb.T_bed,AdsorbA_Adsorb.P_bed/1e3,'bx-')
-% hold off
-% xlabel('Temperature (C)')
-% ylabel('Pressure (kPa)')
-% % legend('bed','water')
-% set(gca,'XTick',-1./Tticks)
-% set(gca,'XTickLabel',{Tticks-273})
-% title('Duhring Plot for Adsorption Chiller Cycle')
-% plotfixer
-% 
+Tticks = [10 20 30 40 50 60 70 80 90]+273';
+ticklabels = num2str(Tticks-273);
+Tlabels = {ticklabels};
+Pticks = [P_evap P_cond]/1e3;
+Pticklabels = num2str(Pticks);
+
+figure(1) % Ln P vs -1/T
+clf
+semilogy(-1./AdsorbA_Heating.T_bed,AdsorbA_Heating.P_bed/1e3,'bx-')
+hold on
+semilogy(-1./[T1_water T2_water T3_water T4_water T1_water],...
+    [P1_water P2_water P3_water P4_water P1_water]/1e3,'ro-')
+semilogy(-1./AdsorbA_Desorb.T_bed,AdsorbA_Desorb.P_bed/1e3,'bx-')
+semilogy(-1./AdsorbA_Cooling.T_bed,AdsorbA_Cooling.P_bed/1e3,'bx-')
+semilogy(-1./AdsorbA_Adsorb.T_bed,AdsorbA_Adsorb.P_bed/1e3,'bx-')
+hold off
+xlabel('Temperature (C)')
+ylabel('Pressure (kPa)')
+legend('Adsorption bed','Refrigerant water')
+set(gca,'XTick',-1./Tticks)
+set(gca,'XTickLabel',{Tticks-273})
+set(gca,'YTick',Pticks)
+set(gca,'YTickLabel',{Pticks})
+text(-1/10,1.6e3,'1')
+title('Duhring Plot for Adsorption Chiller Cycle')
+plotfixer
+
 % figure(2)
 % clf
 % hold on
@@ -345,7 +364,7 @@ error = (Qadd - Qrej)/(Qadd) * 100;
 % ylabel('P (kPa)')
 % xlabel('Enthalpy (kJ/kg_{H2O} K)')
 % title('Adsorption Chiller')
-% legend('Refrigerant H2O','Vapor H2O in Bed')
+% % legend('Refrigerant H2O','Vapor H2O in Bed')
 % axis([-1.6e4 -1.3e4 1 5])
 % plotfixer
 % 
@@ -367,16 +386,32 @@ Outputs.COP = COP;
 Outputs.CoolingCap = CoolingCap;
 Outputs.error = error;
 
-Outputs.Xheating = Xheating;
-Outputs.Xdesorb = Xdesorb;
-Outputs.Xcond = Xcond;
-Outputs.Xcooling = Xcooling;
-Outputs.Xevap = Xevap;
-Outputs.Xadsorb = Xadsorb;
-Outputs.Xexpan = Xexpan;
+% Outputs.Xheating = Xheating;
+% Outputs.Xdesorb = Xdesorb;
+% Outputs.Xcond = Xcond;
+% Outputs.Xcooling = Xcooling;
+% Outputs.Xevap = Xevap;
+% Outputs.Xadsorb = Xadsorb;
+% Outputs.Xexpan = Xexpan;
+% Outputs.Xsystem = Xloss_system;
 
-Outputs.Xsystem = Xloss_system;
+Outputs.Xchill = XchilDest;
+Outputs.Xcooling = XcoolDest;
+Outputs.Xheating = XheatingDest;
+Outputs.Xexpan = XexpanDest;
+Outputs.Xsystem = Xsystem;
 Outputs.Xefficiency = Xefficiency;
+Outputs.QheatingTest = AdsorbA_Desorb.Q_des;
+Outputs.QevapTest = Evap.Qevap;
+
+Outputs.Qhot = Qhot;
+Outputs.Qchil = Qchil;
+
+Outputs.qmax = AdsorbA_Heating.q;
+Outputs.qmin = AdsorbA_Cooling.q;
+Outputs.Pheating = AdsorbA_Heating.P_bed;
+
+Outputs.mr = m_ref;
 
 
 

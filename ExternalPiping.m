@@ -6,18 +6,20 @@ global Po
 
 %Hot water stream
 hot_V_dot = 270; %m^3/h
-density_water = 968;
+density_water = 996;
 hot_m_dot = hot_V_dot*density_water/3600; %kg/s
 % hot_T_in = 85 + 273; %K
 % hot_T_diff = 5.6; %K
 hot_T_out = hot_T_in - hot_T_diff;
 hot_P_in = Po; %Pa
-hot_P_drop = 0;%40000;%29419.95; %Pa = 3mH2O %44100; %Pa = 4.5 mH20
+hot_P_drop = 0;%49033.25;%29419.95; %Pa = 3mH2O %44100; %Pa = 4.5 mH20
 hot_P_out = hot_P_in - hot_P_drop;
 set(water,'P',hot_P_in,'T',hot_T_in);
+QualityIn = vaporFraction(water);
 hot_h_in = enthalpy_mass(water);
 HotFlowXin = flowExergy_mass(water);
 set(water,'P',hot_P_out,'T',hot_T_out);
+QualityOut = vaporFraction(water);
 hot_h_out = enthalpy_mass(water);
 HotFlowXout = flowExergy_mass(water);
 

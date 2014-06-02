@@ -2,9 +2,10 @@ function [ Evap ] = Evaporator(hin,mr,T1)
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
 
-global To P_evap P_cond T_evap T_cond 
+global To P_evap P_cond T_evap T_cond T_low T_max m_solid
 
 water = importPhase('liquidVapor.xml','water');
+% mr = mr*(T_max/(85+273))
 
 %incoming state
 set(water,'P',P_evap,'H',hin);
@@ -13,13 +14,13 @@ FlowXin = mr*flowExergy_mass(water);
 h1 = enthalpy_mass(water);
 s1 = entropy_mass(water);
 
-% setState_Psat(water,[P_evap,0]);
-% hf = enthalpy_mass(water);
+setState_Psat(water,[P_evap,0]);
+hf = enthalpy_mass(water);
 setState_Psat(water,[P_evap,1]);
 hg = enthalpy_mass(water);
-% hfg = hf - hg;
+hfg = hf - hg;
 
-% Qlat = -mr*hfg*y;
+% Qlat = -mr*hfg;
 Qlat = mr*(hg-hin);
 
 set(water,'T',T1,'P',P_evap);
@@ -38,7 +39,20 @@ DX = 0;
 % dFlowX = mr*((h1-h2)-To*(s1-s2))
 % dFlowX2 = FlowXin - FlowXout
 
+
+
+
+
+% 
+% q_max = Adsorbate_Con_Ratio(T_low,P_evap);
+% q_min = Adsorbate_Con_Ratio(T_max,P_cond);
+% 
+% Qevap = -(q_max - q_min) * hfg * m_solid;
+
+
 Xloss = FlowXin + Qevap*(1-(To/T_evap)) - FlowXout - DX;
+
+
 
 Evap.Qevap = Qevap;
 Evap.Xloss = Xloss;
@@ -77,11 +91,6 @@ Evap.FlowXin = FlowXin;
 
 
 
-
-
-
 end
 
-% q_max = Adsorbate_Con_Ratio(T_amb,P_evap);
-% q_min = Adsorbate_Con_Ratio(T_max,P_cond);
-% Qevap = (q_max - q_min) * hfg * m_solid ;
+

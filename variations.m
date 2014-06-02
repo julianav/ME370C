@@ -6,29 +6,31 @@ fprintf('\n***************************************************************\n')
 
 steps = 20;
 
+global P_cond P_evap
+
 %Hot water stream
 % hot_T_in_range = linspace(50,100,steps)+ 273; %K
- hot_T_in_range = [70 75 80 85 90 95]+273;
- hot_T_in = 65+273;
+%  hot_T_in_range = [50 55 65 70 75 80 85 90 95 100]+273;
+ hot_T_in_range = 85+273;
  hot_T_diff = 5.6; %K
 
 %Chilled water stream 
 % chilled_T_out = 9 + 273; %K
-chilled_T_in = 12 + 273; %K
-chilled_T_diff = 6;
+chilled_T_in = 14 + 273; %K
+chilled_T_diff = 5;
 
 %Cooling water stream
-cooling_T_in = 28 + 273; %K
-cooling_T_diff = 33-28;
+cooling_T_in_range = 31 + 273; %K
+% cooling_T_in_range = [28 29 30 31 32]+273;
+cooling_T_diff = 3.8;
 
 j = 1;
-for i = 1%:length(hot_T_in_range) %steps
+for i = 1:length(hot_T_in_range) %steps
     fprintf('\n***************************************************************')
     fprintf('\n***************************************************************\n')
-%     hot_T_in = hot_T_in_range(i);
-%     hot_T_in = 85+273;
+    hot_T_in = hot_T_in_range(i);
     chilled_T_in;
-    cooling_T_in;
+    cooling_T_in = cooling_T_in_range;
     
     fprintf('Hot T = %0.f C \n',hot_T_in-273)
     fprintf('Chilled T = %d C \n',chilled_T_in-273)
@@ -36,35 +38,50 @@ for i = 1%:length(hot_T_in_range) %steps
     
     fprintf('***************************************************************\n')
     
-    Outputs = multicycle(hot_T_in,chilled_T_in,cooling_T_in,hot_T_diff,chilled_T_diff,cooling_T_diff);
+    Outputs = multicycle(i,hot_T_in,chilled_T_in,cooling_T_in,hot_T_diff,chilled_T_diff,cooling_T_diff);
     
     error = Outputs.error;
-%     if error < 2 && Outputs.Xadsorb > 0
+    if Outputs.Xcooling > 0
         COP(j) = Outputs.COP;
         CoolingCap(j) = Outputs.CoolingCap;
         HotT(j) = hot_T_in;
+        CoolT(j) = cooling_T_in;
         Xheating(j) = Outputs.Xheating;
-        Xdesorb(j) = Outputs.Xdesorb;
-        Xcond(j) = Outputs.Xcond;
         Xcooling(j) = Outputs.Xcooling;
-        Xevap(j) = Outputs.Xevap;
-        Xadsorb(j) = Outputs.Xadsorb;
+        Xchil(j) = Outputs.Xchill;
         Xexpan(j) = Outputs.Xexpan;
-        Xloss_system(j) = Outputs.Xsystem;    
+        Xsystem(j) = Outputs.Xsystem;
         Xefficiency(j) = Outputs.Xefficiency;
+        Qheating(j) = Outputs.Qhot;
+        Qevap(j) = Outputs.Qchil;
+        qmax = Outputs.qmax;
+        qmin = Outputs.qmin;
+        Pheating = Outputs.Pheating;
+        m_ref(j) = Outputs.mr;
         j = j+1;
-%     end
+    end
 
 
 end
 
-figure(1)
-clf
-plot(HotT - 273,COP)
-xlabel('Temperature of the Hot Stream (C)')
-ylabel('COP')
-plotfixer
+CInc = (Qevap(end)-Qevap(1))/1e3;
+HInc = (Qheating(end)-Qheating(1))/1e3;
 
+% figure(1)
+% clf
+% plot(CoolT - 273,COP)
+% xlabel('Temperature of the Cool Stream (C)')
+% ylabel('COP')
+% plotfixer
+
+
+% figure(1)
+% clf
+% plot(HotT - 273,COP)
+% xlabel('Temperature of the Hot Stream (C)')
+% ylabel('COP')
+% plotfixer
+% 
 % figure(2)
 % clf
 % plot(HotT - 273,CoolingCap)
@@ -74,18 +91,16 @@ plotfixer
 % 
 % figure(3)
 % clf
-% plot(HotT - 273,Xloss_system)
+% plot(HotT - 273,Xsystem/1e3)
 % xlabel('Temperature of the Hot Stream (C)')
-% ylabel('Exergy loss MJ')
+% ylabel('Exergy loss kW')
 % plotfixer
 % 
-% Ti = 1;
+% Ti = 3;
 % for i = Ti
-%     Xbar = [Xheating(i) Xdesorb(i) Xcond(i) Xcooling(i) Xexpan(i)...
-%         Xevap(i) Xadsorb(i)];
+%     Xbar = [Xheating(i) Xcooling(i) Xexpan(i) Xchil(i)];
 % end
-% Xlabels = {'1-Heating','2-Desorption','3-Condensation','4-Cooling',...
-%     '5-Expansion','6-Evaporation','7-Adsorption'};
+% Xlabels = {'1-Heating/Desorption','2-Cooling/Adsorption','3-Expansion','4-Evaporation'};
 % Xloss_total = 0;
 % for i=1:1:length(Xbar)
 %     Xloss_total = Xloss_total + Xbar(i);
@@ -93,64 +108,47 @@ plotfixer
 % 
 % figure(4)
 % clf
-% bar(100*Xbar/Xloss_total)
+% bar(100*Xbar./Xloss_total)
 % xlabel('Conversion Device')
 % ylabel('Exergy Loss (%)')
 % scale = axis;
-% text(0.5,56,'Device Key:')
+% text(2.5,66,'Device Key:')
 % for i=1:1:length(Xbar)
-%     text(0.5,56-4*i,Xlabels(i))
+%     text(2.5,66-5*i,Xlabels(i))
 % end
 % % text(1,62.5,sprintf('C-C Efficiency:  %3.1f (Exergy),  %3.1f (LHV)',...
 % %     100*Exergy_Efficiency,100*Eff_combined_cycle))
-% text(0,62.5,sprintf('Hot Temperature: %.2f C  Exergy Efficiency: %.2f',...
+% text(0,82.5,sprintf('Hot Temperature: %.0f C  Exergy Efficiency: %.2f',...
 %     HotT(Ti)-273,Xefficiency(Ti)))
-% axis([0 8 0 60])
+% axis([0 5 0 80])
 % plotfixer
-% 
-% 
-% % for i = 1:length(Xheating)
-% %     Xline(i) = [Xheating(i) -Xdesorb(i) Xcond(i) Xcooling(i) Xexpan(i)...
-% %         Xevap(i) Xadsorb(i)];
-% % end
-% Xlabels = {'Heating','Desorption','Condensation','Cooling',...
-%     'Expansion','Evaporation','Adsorption'};
-% % Xloss_total = 0;
-% % for i=1:1:length(Xbar)
-% %     Xloss_total = Xloss_total + Xbar(i);
-% % end
 % 
 % figure(5)
 % clf
 % hold on
-% plot(HotT-273,Xheating,'ro-')
-% plot(HotT-273,Xdesorb,'bx-')
-% plot(HotT-273,Xcond,'gd-')
-% plot(HotT-273,Xcooling,'cs-')
-% plot(HotT-273,Xexpan,'m+-')
-% plot(HotT-273,Xevap,'k*-')
-% plot(HotT-273,Xadsorb,'y^-')
-% Legend('Heating','Desorption','Condensation','Cooling',...
-%     'Expansion','Evaporation','Adsorption')
+% plot(HotT-273,Xheating/1e3,'ro-')
+% plot(HotT-273,Xcooling/1e3,'cs-')
+% plot(HotT-273,Xchil/1e3,'g*-')
+% plot(HotT-273,Xexpan/1e3,'bd-')
+% % plot([HotT(1) HotT(end)]-273,[0 0],'k-')
+% Legend('Heating/Desorption','Cooling/Adsorption',...
+%     'Evaporation','Expansion')
 % xlabel('Temperature of the Hot Stream (C)')
-% ylabel('Exergy loss (MJ)')
+% ylabel('Exergy loss (kW)')
 % plotfixer
 % 
 % figure(6)
 % clf
 % hold on
-% plot(HotT-273,100*Xheating./Xloss_system,'ro-')
-% plot(HotT-273,100*Xdesorb./Xloss_system,'bx-')
-% plot(HotT-273,100*Xcond./Xloss_system,'gd-')
-% plot(HotT-273,100*Xcooling./Xloss_system,'cs-')
-% plot(HotT-273,100*Xexpan./Xloss_system,'m+-')
-% plot(HotT-273,100*Xevap./Xloss_system,'k*-')
-% plot(HotT-273,100*Xadsorb./Xloss_system,'y^-')
-% Legend('Heating','Desorption','Condensation','Cooling',...
-%     'Expansion','Evaporation','Adsorption')
+% plot(HotT-273,100*Xheating./Xsystem,'ro-')
+% plot(HotT-273,100*Xcooling./Xsystem,'cs-')
+% plot(HotT-273,100*Xchil./Xsystem,'g*-')
+% plot(HotT-273,100*Xexpan./Xsystem,'bd-')
+% Legend('Heating/Desorption','Cooling/Adsorption',...
+%     'Evaporation','Expansion')
 % xlabel('Temperature of the Hot Stream (C)')
 % ylabel('Exergy loss (%)')
 % plotfixer
-
-
+% 
+% 
 

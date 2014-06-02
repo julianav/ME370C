@@ -2,13 +2,13 @@ function[q] = Adsorbate_Con_Ratio( T, P )
 %Adsorbate Consentration Ratio
 %mass adsorbate / mass solid
 
-global K
+global K Qst
 
 % Adsorption Model parameters
-Qst = 2.51 *10^6;
-R = 8314; %J/kmol*K
+% Qst = 2.51 *10^6;
+R1 = 8314; %J/kmol*K
 MolarMass = 18.016;
-Rwater = R/MolarMass; %J/kg*K
+Rwater = R1/MolarMass; %J/kg*K
 
 q_old = K*exp(Qst/(Rwater*T))*P;
 q = q_old;

@@ -10,7 +10,7 @@ global m_solid m_metal c_metal c_solid Qst
 global P_evap P_cond T_low To Po
 global j Rwater R 
 
-% setState_Tsat(water,[T_evap 1]);  %vapor
+% setState_Tsat(water,[T_evap 1]); 
 
 set(water,'T',T_low,'P',P_evap);
 ug1 = intEnergy_mass(water);
@@ -65,6 +65,7 @@ X1 = Xgas1 + Xads1 + Xsolid1 + Xmetal1;
 
 T_prev = T_low;
 vg_prev = 1/rhog1;
+theta_prev = (m_a/rhoL)/open_volume;
 dP = (P_cond - P_evap)/10;
 Q12 = 0;
 XofQ = 0;
@@ -76,6 +77,7 @@ for P = P_evap:dP:P_cond
     ratio = P/T;
     
     set(water,'P',P,'T',T);
+    setState_Tsat(water,[T,1]);
     hg = enthalpy_mass(water);
     vg = 1/density(water);
     ug = intEnergy_mass(water);
@@ -92,7 +94,8 @@ for P = P_evap:dP:P_cond
     dQ_metal = m_metal * c_metal * dT;
     dQ_solid = m_solid * c_solid * dT;
     %---------------------------------------------
-    dtheta = 0; %(m_a/rhoL)/open_volume;
+    theta = (m_a/rhoL)/open_volume;
+    dtheta = theta - theta_prev;
     dW = - open_volume * P * dtheta;
     
     m_a = q_max * m_solid;
@@ -136,6 +139,7 @@ for P = P_evap:dP:P_cond
     
     ua_prev = u_a;
     T_prev = T;
+    theta_prev = theta;
     i = i + 1;
     j = j + 1;
 end

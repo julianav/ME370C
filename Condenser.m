@@ -2,7 +2,7 @@ function [ Cond ] = Condenser(mr,T2)
 %UNTITLED5 Summary of this function goes here
 %   Detailed explanation goes here
 
-global To P_cond T_cond
+global To P_cond T_cond T_max
 
 water = importPhase('liquidVapor.xml','water');
 

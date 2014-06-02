@@ -2,11 +2,11 @@ function [ T ] = T_isosteric(q,P)
 %UNTITLED5 Summary of this function goes here
 %   Detailed explanation goes here
 
-global K Qst open_volume
+global K Qst open_volume Rwater
 % Adsorption Model parameters
-R = 8314; %J/kmol*K
+R1 = 8314; %J/kmol*K
 MolarMass = 18.016;
-Rwater = R/MolarMass; %J/kg*K
+% Rwater = R1/MolarMass; %J/kg*K
 
 T_guess = Qst/(Rwater*log(q/(K*P)));
 
@@ -20,7 +20,7 @@ q_guess = (Ko*y*P/1e3)/(1+((Ko/q_eq)*y*P/1e3)^t)^(1/t);
 
 
 V = open_volume;
-n = (P*V)/(R/1e3*T_guess);
+n = (P*V)/(R1/1e3*T_guess);
 dT = .01;
 dQ = 1;
 % while abs(n - n_init) > .01
@@ -34,7 +34,7 @@ dQ = 1;
 %         y = exp(Q/(Rw*T_guess));
 %         q_guess = (Ko*y*P/1e3)/(1+((Ko/q_eq)*y*P/1e3)^t)^(1/t);
 %     end
-% %     n = (P*V)/(R/1e3*T_guess)
+% %     n = (P*V)/(R1/1e3*T_guess)
 % %     Q = Q+dQ;
 % %     y = exp(Q/(Rw*T_guess));
 % %     q_guess = (Ko*y*P/1e3)/(1+((Ko/q_eq)*y*P/1e3)^t)^(1/t)

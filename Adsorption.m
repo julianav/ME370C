@@ -70,7 +70,7 @@ for T = T_init:dT:T_final
     hg = enthalpy_mass(water);
     rhog = density(water);
     ug = intEnergy_mass(water);
-    flow_x = flowExergy_mass(water);
+%     flow_x = flowExergy_mass(water);
     sg = entropy_mass(water);
 
     mg_capacity = open_volume * rhog * porosity;
