@@ -29,8 +29,8 @@ Hot.Qheating = Qheating;
 Hot.h_in = hot_h_in;
 Hot.h_out = hot_h_out;
 Hot.m_dot = hot_m_dot;
-Hot.FlowXin = HotFlowXin;
-Hot.FlowXout = HotFlowXout;
+Hot.Flowxin = HotFlowXin;
+Hot.Flowxout = HotFlowXout;
 
 %Chilled water stream 
 chilled_V_dot = 181; %m^3/h
@@ -39,7 +39,7 @@ chilled_m_dot = chilled_V_dot*density_water/3600;
 % chilled_T_diff = 6;
 chilled_T_out = chilled_T_in - chilled_T_diff; %K
 chilled_P_in = Po; %Pa 
-chilled_P_drop = 0;%75500;% Pa  53900; %Pa = 5.5 mH20
+chilled_P_drop = 75500;% Pa  53900; %Pa = 5.5 mH20
 chilled_P_out = chilled_P_in - chilled_P_drop;
 set(water,'P',chilled_P_in,'T',chilled_T_in);
 chilled_h_in = enthalpy_mass(water);
@@ -54,8 +54,8 @@ Chil.Qchilled = Qchilled;
 Chil.h_in = chilled_h_in;
 Chil.h_out = chilled_h_out;
 Chil.m_dot = chilled_m_dot;
-Chil.FlowXin = ChilFlowXin;
-Chil.FlowXout = ChilFlowXout;
+Chil.Flowxin = ChilFlowXin;
+Chil.Flowxout = ChilFlowXout;
 
 
 %Cooling water stream
@@ -69,10 +69,10 @@ cooling_P_drop = 0;%44100; %78453.2; %Pa = 8 mH20
 cooling_P_out = cooling_P_in - cooling_P_drop;
 set(water,'P',cooling_P_in,'T',cooling_T_in);
 cooling_h_in = enthalpy_mass(water);
-coolFlowXin = flowExergy_mass(water);
+coolFlowxin = flowExergy_mass(water);
 set(water,'P',cooling_P_out,'T',cooling_T_out);
 cooling_h_out = enthalpy_mass(water);
-coolFlowXout = flowExergy_mass(water);
+coolFlowxout = flowExergy_mass(water);
 
 Qcooling = cooling_m_dot*(cooling_h_out - cooling_h_in)/1e3;%kW
 
@@ -80,7 +80,7 @@ Cool.Qcooling = Qcooling;
 Cool.h_in = cooling_h_in;
 Cool.h_out = cooling_h_out;
 Cool.m_dot = cooling_m_dot;
-Cool.FlowXin = coolFlowXin;
-Cool.FlowXout = coolFlowXout;
+Cool.Flowxin = coolFlowxin;
+Cool.Flowxout = coolFlowxout;
 
 end

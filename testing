@@ -1,0 +1,17 @@
+CKW = [559 749 897 1013 1108 1193 1246 1298];
+HKW = [1216 1441 1602 1718 1817 1894 1947 1998];
+
+HotT = [65 70 75 80 85 90 95 100];
+
+figure(1)
+clf
+plot(HotT,CKW)
+hold on
+plot(HotT,HKW,'r-')
+
+figure(2)
+clf
+plot(HotT,CKW./HKW)
+
+CIncData = 1298-559
+HKWIncData = 1998-1216

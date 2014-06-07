@@ -122,7 +122,7 @@ for P = P_evap:dP:P_cond
     Q12 = Q12 + dQ12;
     
     dXofQ = dQ12*(1-To/T);
-    XofQ = XofQ + dXofQ;   
+    XofQ = XofQ + dXofQ;  
     
     %graphing
     Heating.T_water(i) = T;
@@ -177,6 +177,7 @@ DXads = Xads2-Xads1;
 
 % fprintf('\nHeating\n')
 DX = X2 - X1;
+
 % Heating.Xloss = Q12*(1-To/T) - DX;
 Heating.Xloss = XofQ - DX;
 Heating.DX = DX;

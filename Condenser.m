@@ -39,7 +39,8 @@ DX = 0;
 Xloss = FlowXin - FlowXout + Qcond*(1-To/Tg) - DX;
 Xloss2 = FlowXin - FlowXout + XofQ - DX;
 
-Cond.xout = FlowXout;
+Cond.FlowXout = FlowXout;
+Cond.FlowXin = FlowXin;
 Cond.Qcond = Qcond;
 % Cond.Qcond_hfg = Qcond_hfg;
 Cond.Xloss = Xloss;
