@@ -39,7 +39,7 @@ chilled_m_dot = chilled_V_dot*density_water/3600;
 % chilled_T_diff = 6;
 chilled_T_out = chilled_T_in - chilled_T_diff; %K
 chilled_P_in = Po; %Pa 
-chilled_P_drop = 75500;% Pa  53900; %Pa = 5.5 mH20
+chilled_P_drop = 0;%75500;% Pa  53900; %Pa = 5.5 mH20
 chilled_P_out = chilled_P_in - chilled_P_drop;
 set(water,'P',chilled_P_in,'T',chilled_T_in);
 chilled_h_in = enthalpy_mass(water);

@@ -1,9 +1,8 @@
-function [ Cooling ] = Cooling( T_max, m_init,m_cond )
+function [ Cooling ] = Cooling( T_max,m_init)
 %UNTITLED9 Summary of this function goes here
 %   Detailed explanation goes here
 
 water = importPhase('liquidVapor.xml','water');
-water_vap = IdealGasMix('gri30.xml');
 
 global open_volume
 global m_solid m_metal c_metal c_solid Qst
@@ -109,7 +108,7 @@ for P = P_cond:dP:P_evap
     Cooling.m_ads(i) = m_a;
     Cooling.Q = Q34;
     Cooling.h(i) = hg;
-    Cooling.m_ref(j) = m_cond;
+%     Cooling.m_ref(j) = m_cond;
     Cooling.P_ref(j) = P;
 
     T_prev = T;

@@ -1,13 +1,26 @@
-function [ Evap ] = Evaporator(hin,mr,T1)
+function [ Evap ] = Evaporator(mr,T1)
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
 
-global To P_evap P_cond T_evap T_cond T_low T_max m_solid
+global To P_evap P_cond T_evap T_cond T_max m_solid
 
 water = importPhase('liquidVapor.xml','water');
-% mr = mr*(T_max/(85+273))
+
+%Metal
+c_Cu = 384.4; %J/kg*K
+density_Cu = 8940; %kg/m^3
+Ntubes = 224;
+Ltube = 3.894;
+Vtube = pi * ((17.75e-3/2)^2 - (1.33e-3/2)^2) * Ltube * Ntubes;
+m_Cu = Vtube * density_Cu;
 
 %incoming state
+T3_water = T_cond;
+P3_water = P_cond;
+set(water,'T',T3_water,'P',P3_water);
+h3 = enthalpy_mass(water);
+hin = h3;
+
 set(water,'P',P_evap,'H',hin);
 y = (1-vaporFraction(water));
 FlowXin = mr*flowExergy_mass(water);
@@ -32,24 +45,21 @@ s2 = entropy_mass(water);
 
 Qsens = mr*(hout - hg);
 
-Qevap = Qlat + Qsens;
+Qevap_water = Qlat + Qsens;
 
-DX = 0;
 
 % dFlowX = mr*((h1-h2)-To*(s1-s2))
 % dFlowX2 = FlowXin - FlowXout
 
+q_max = Adsorbate_Con_Ratio(T_cond,P_evap);
+q_min = Adsorbate_Con_Ratio(T_max,P_cond);
+Qevap_water = -(q_max - q_min) * hfg * m_solid;
+
+Qmetal = m_Cu * c_Cu * (T1 - T_evap);
+Qevap = Qevap_water + Qmetal;
 
 
-
-
-% 
-% q_max = Adsorbate_Con_Ratio(T_low,P_evap);
-% q_min = Adsorbate_Con_Ratio(T_max,P_cond);
-% 
-% Qevap = -(q_max - q_min) * hfg * m_solid;
-
-
+DX = 0;
 Xloss = FlowXin + Qevap*(1-(To/T_evap)) - FlowXout - DX;
 
 

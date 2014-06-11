@@ -1,13 +1,12 @@
-function [ Heating ] = Heating( hotTin)
+function [ Heating ] = Heating(T_low)
 %UNTITLED6 Summary of this function goes here
 %   Detailed explanation goes here
 
 water = importPhase('liquidVapor.xml','water');
-% water_vap = IdealGasMix('gri30.xml');
 
 global open_volume porosity 
 global m_solid m_metal c_metal c_solid Qst
-global P_evap P_cond T_low To Po
+global P_evap P_cond To Po
 global j Rwater R 
 
 % setState_Tsat(water,[T_evap 1]); 

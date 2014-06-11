@@ -1,4 +1,4 @@
-function [ Desorb ] = Desorption( T_cond,T_init,T_final,m_init)
+function [ Desorb ] = Desorption(T_cond,T_init,T_final,m_init,T_low)
 %UNTITLED10 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -6,7 +6,7 @@ water = importPhase('liquidVapor.xml','water');
 
 global open_volume porosity
 global m_solid m_metal c_metal c_solid Qst
-global P_cond T_low P_evap
+global P_cond P_evap
 global j To Po Rwater
 
 setState_Tsat(water,[T_cond 0]); %liquid phase
@@ -16,7 +16,7 @@ rhoL = density(water);
 setState_Tsat(water,[T_cond,1]);
 hf_low = enthalpy_mass(water);
 
-q_max = Adsorbate_Con_Ratio(T_low,P_evap);
+q_max = Adsorbate_Con_Ratio(T_cond,P_evap);
 
 m_a2 = q_max * m_solid;
 m_g2 = m_init;
@@ -24,7 +24,7 @@ m_g2 = m_init;
 set(water,'P',P_cond,'T',T_init);
 rhog_init = density(water);
 
-setState_Tsat(water,[T_low 0]);
+setState_Tsat(water,[T_cond 0]);
 rhoa_init = density(water);
 
 %Initial state
